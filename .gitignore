@@ -1,0 +1,15 @@
+*.swp
+*.swo
+
+build/
+*.a
+*.o
+
+*.clang_complete
+*tags
+*.taghl
+*.log
+worksyet
+client
+server
+
