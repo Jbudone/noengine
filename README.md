@@ -75,9 +75,11 @@ TODO
 	+ Dev/Release compiling
 	+ look into Erlang/Haskell messaging system between objects
 	
+	+ Serializer/Parser for saving/loading maps, clients initially connecting or loading pages
 	+ Voxel based terrain engine w/ sculpting brushes
 	+ Add items to world, rotate/scale/move, edit shaders/materials & live serializing/reloading
 	+ Automatic portals through voxel terrain
+	+ Skyboxes w/ weather system, day-night system, calendar/seasonal system
 	+ Mipmapping in pages; network sends through pages/portals; low priority job queue to update
 			further away pages; favour portals over pages
 	+ Save/Load/Snapshot/Pause state for World, Entity, Network, etc. (easily reload snapshots
@@ -256,13 +258,13 @@ Coding Style
 	  **/
 
 
-#include "rendering.inc.h"
-#include "util.inc.h"
-
-#include </usr/extern/xxx.h>
-#include "extern/GL/xxx.h"
-
-#include "local.h"
+	#include "rendering.inc.h"
+	#include "util.inc.h"
+	
+	#include </usr/extern/xxx.h>
+	#include "extern/GL/xxx.h"
+	
+	#include "local.h"
 
 
 	Object {
