@@ -244,16 +244,16 @@ Coding Style
 --------------
 
 
-/***
-  * File
-  *
-  *	    Desc of how it works
-  *
-  * TODO:
-  *  - x1
-  *  - x2
-  *			-details-
-  **/
+	/***
+	  * File
+	  *
+	  *	    Desc of how it works
+	  *
+	  * TODO:
+	  *  - x1
+	  *  - x2
+	  *			-details-
+	  **/
 
 
 #include "rendering.inc.h"
@@ -265,47 +265,47 @@ Coding Style
 #include "local.h"
 
 
-Object {
-public:
-	memberAbc;
+	Object {
+	public:
+		memberAbc;
 
 
-	// group of functions
-	// ---------------------
-	// short description of this particular
-	// group of functions
-	// ---------------------
-	func1(int x, int y, int z); // read this pixel
-};
+		// group of functions
+		// ---------------------
+		// short description of this particular
+		// group of functions
+		// ---------------------
+		func1(int x, int y, int z); // read this pixel
+	};
 
-// ============================================================================
-// Function blah
-//
-//  description (optional)
-// @param1: desc
-// @param2: desc
-// @returns: desc
-// ============================================================================
-// ========================================================
-longFunction ( param1, param2, ... ) {
+	// ============================================================================
+	// Function blah
+	//
+	//  description (optional)
+	// @param1: desc
+	// @param2: desc
+	// @returns: desc
+	// ============================================================================
+	// ========================================================
+	longFunction ( param1, param2, ... ) {
 
-}
-// ========================================================
+	}
+	// ========================================================
 
-// ========================================================
-// Function foo
-// small description
-smallFunction ( param1, param2, ... ) {
+	// ========================================================
+	// Function foo
+	// small description
+	smallFunction ( param1, param2, ... ) {
 
-}
-// ========================================================
+	}
+	// ========================================================
 
 
-/******************************************************************************/
-							/***** SECTION *****/
-/******************************************************************************/
-/*
+	/******************************************************************************/
+								/***** SECTION *****/
+	/******************************************************************************/
+	/*
 
-   			Notes on the inner workings of this section (header)
+				Notes on the inner workings of this section (header)
 
-																			*/
+																				*/
