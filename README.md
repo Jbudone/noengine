@@ -68,13 +68,15 @@ TODO
 	+ Resource Mgr: instance meshes & textures; test UV-baked textures; allow tex arrays (normal
 			maps, spec maps); tex & mesh table lookup + string hashing; load all wavefront file
 			details
+	+ Multiple worlds; held outside of res
 	+ Setup Mesh kernel: load wavefront files (ALL data + material files)
 	+ Setup UI
 	+ Setup testing env: no threads, single player
 	+ Setup Job queue for threads
 	+ Dev/Release compiling
 	+ look into Erlang/Haskell messaging system between objects
-	+ Hash id: world actions
+	+ Hash id (low collision & fast): world actions
+	+ Error handling: GL include line numbers & details of GL commands being issued
 	
 	+ Serializer/Parser for saving/loading maps, clients initially connecting or loading pages
 	+ Voxel based terrain engine w/ sculpting brushes
@@ -98,6 +100,8 @@ TODO
 	+ Object query system
 	+ High precision clock
 	+ Action buffer resyncing
+	+ Server journaling; client ack on relays, able to resend previous relays. Journaler handled by
+		a separate thread for performance
 
 
 Cleanup

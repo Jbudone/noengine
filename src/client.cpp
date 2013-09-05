@@ -215,22 +215,12 @@ int main(int argc, char **argv) {
 	 * NOTE: we do not acknowledge packets from the server (to cut down on noise
 	 * 		and processing time for the server); keep this in mind in case any
 	 * 		bugs show up later on which require us to change this around
+	 ***/
 	input_clock = glutGet( GLUT_ELAPSED_TIME );
 	camera.update();
 	Log( "Ready." );
 	LocalWorldActions localActions = LocalWorldActions(); // actions made locally are placed here and confirmed from the server replies
 	while ( !requestClose ) {
-		/*
-		if ( newMsg ) {
-			threadPause = true;
-
-			(*net::actionBuffer.active)->push_back( LocalAction( (++net::reqid), 0, 0, msgBuf, -1 ) );
-			net::send( (*net::actionBuffer.active)->back() );
-			Log("sending message!");
-			threadPause = false;
-			newMsg = false;
-		}
-		*/
 
 #ifndef PLAY_LOCALLY
 		// copy local action buffer to world action buffer, net send buffer
@@ -264,9 +254,8 @@ int main(int argc, char **argv) {
 			int actionCount = 0, removeAction = -1;
 			Log(str(format("checking received netAction (%1%): %2%")%netAction.action%netAction.args));
 			for ( LocalWorldAction localAction : (**localActions.active) ) {
-				Log(str(format("does netAction (%1%) == (%2%) ?")%netAction.id%localAction.id));
 				if ( localAction.id == netAction.id ) {
-					Log(str(format("netAction (%1%) == (%2%)")%netAction.id%localAction.id));
+					Log(str(format("netAction (%1%) == (%2%)   removing action from buffer")%netAction.id%localAction.id));
 					// TODO: check for modifications in the action; resync modifications if necessary
 					removeAction = actionCount;
 					break;
@@ -287,42 +276,39 @@ int main(int argc, char **argv) {
 			(*ResourceManager::world->actions.active)->push_back( WorldAction( netAction.action, netAction.args, netAction.page, netAction.initiator, netAction.id ) );
 		}
 		(*net::actionQueue.inactive)->clear();
+#endif
+
+
 
 		ResourceManager::world->step( 10 );
-#endif
 
 		check_gl_error();
 		glutMainLoopEvent();
 		usleep( 10 * 1000 );
 	}
-	// glutDestroyWindow( nWindow );
-	// glutLeaveMainLoop();
-	// t1.detach();
-#ifndef NO_INPUT
-	Input::shutdown();
-	Log("SHUTTING DOWN INPUT!!!");
-#endif
 
-#ifndef PLAY_LOCALLY
-	net::shutdown();
-	Log("SHUTDOWN NET");
-#endif
-#endif
-	ResourceManager::shutdown();
-	Log("SHUTDOWN RESMGR");
-	LogSystem::shutdown();
-	return -1;
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
-	// check_gl_error();
-	// glutMainLoop();
 
 	// ==========================================
 	// shutdown global systems
-	
-	// ResourceManager::shutdown();
-	// LogSystem::shutdown();
+
+	glutDestroyWindow( nWindow );
+
+#ifndef NO_INPUT
+	Log( "shutting down input.." );
+	Input::shutdown();
+#endif
+
+#ifndef PLAY_LOCALLY
+	Log( "shutting down net.." );
+	net::shutdown();
+#endif
+
+
+	Log( "shutting down res.." );
+	ResourceManager::shutdown();
+
+	Log( "shutting down logger.." );
+	LogSystem::shutdown();
 
 	return -1;
 }
@@ -363,7 +349,7 @@ void display() {
 	// check for input stuff
 	if ( glutGet( GLUT_ELAPSED_TIME ) - input_clock > 40 ) {
 		input_clock = glutGet( GLUT_ELAPSED_TIME );
-		// TODO: check individual keys pressed, respond to action
+		// check individual keys pressed, respond to action
 		int right = 0, up = 0, forward = 0;
 		if ( input_state & INPUT_LEFT     ) right      += 1;
 		if ( input_state & INPUT_RIGHT    ) right      -= 1;
@@ -421,7 +407,6 @@ void keyboardRelease(unsigned char key, int xx, int yy) {
 				uint dropguid = ResourceManager::world->entities.size();
 				// TODO: set proper id and time
 				(*localActions.inactive)->push_back( LocalWorldAction( WorldAction::serialize_create_mesh( 1, dropguid, camera.position ), 8923, 1 ) ); break;
-				// (*ResourceManager::world->actions.active)->push_back( WorldAction::serialize_create_mesh( 1, dropguid, camera.position ) ); break;
 			}
 		case 108: // LIGHT
 
@@ -481,7 +466,8 @@ void mouseClick(int button, int state, int x, int y) {
 			} else if ( state==GLUT_DOWN && !mouse_selecting ) {
 				mouse_selecting = true;
 
-				// TODO: picking
+				// ==========================================
+				// world picking
 
 				// project coordinates into screen-space [-1,1]
 				// use the mid-section of pixel
