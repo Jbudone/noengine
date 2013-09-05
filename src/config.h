@@ -26,6 +26,7 @@
 
 
 #define CFG_LOGFILE "noengine.log"
+#define CFG_LOGFILE_SERVER "noengine.serv.log"
 #define CFG_LOGLEVEL Logger::LOG_DEBUG
 
 // terminal colours

@@ -1,17 +1,15 @@
 
-/* TODO
+/***
+ * Client
  *
- *  > BUG: texture saving, loop through local actions
- *  > MESH referencing (server to describe meshes when loading)
- *  > ENTITY guid set
- *  > setting lights
- *  > NET actions
- *  	> local buffer object (message id, clearing/ignoring)
- *  > connection initialization
- *  > server tell users of new connection
- ***/
-#define CLIENT
-#include <stdio.h>
+ *	    Main file to run for the client
+ *
+ * TODO
+ *  - high precision clock for loop
+ *  - protocol for mapping input to game requests
+ *
+ **/
+
 
 #include "config.h"
 #include "util.inc.h"
@@ -20,13 +18,11 @@
 #include "extern/GL/freeglut.h"
 #include "extern/GL/glm/gtc/random.hpp"         // value_ptr
 
-#include "libutils/lib_logger.h"
-#include "libutils/lib_resmgr.h"
 #include "kernel/k_camera.h"
+#include "libutils/lib_resmgr.h"
 #include "kernel/k_net.client.h"
 
 
-using namespace Logger;
 
 void check_gl_error();
 void display();
@@ -115,33 +111,15 @@ namespace Input {
 	}
 };
 
-	struct LocalWorldAction {
-		LocalWorldAction( WorldAction action, uint id, uint time ) : action(action), id(id), time(time) { }
-		WorldAction action; uint id; uint time;
-	};
-	// typedef union { WorldAction action; uint id; uint time; } LocalWorldAction;
-	typedef SwapBuffer<vector< LocalWorldAction >> LocalWorldActions;
-	LocalWorldActions localActions = LocalWorldActions(); // actions made locally are placed here and confirmed from the server replies
 int main(int argc, char **argv) {
-
-	// ==========================================
-	// start global systems
 	
 	LogSystem::startup( CFG_LOGFILE );
-
 	Log( str( format( "Starting %1%" ) % argv[0] ) );
-
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#ifdef CLIENT
 	Log( "This is the CLIENT" );
-
-
-
 
 
 	// ==========================================
 	// startup window
-
 
 	glutInit( &argc, argv );
 
@@ -167,122 +145,8 @@ int main(int argc, char **argv) {
 	glutInitWindowSize( width, height );
 	glutInitWindowPosition( winX, winY );
 	int nWindow = glutCreateWindow( argv[0] );
-	// glutSetOption( GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION );
+	glutSetOption( GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_CONTINUE_EXECUTION );
 
-
-	// ==========================================
-	// startup gl program
-
-	try {
-		/*
-		// load individual shaders properly
-		program = new ShaderProgram();
-		ResourceManager::LoadProgram( &program );
-		glUseProgram( program->programid );
-		ShaderSet *shader = new ShaderSet();
-		if ( ResourceManager::LoadShader( program, "data/shaders/shade.vert", GL_VERTEX_SHADER, SHD_PHONG | SHD_BUMP, &shader ) & ERROR ) { throw exception(); }
-		Log("Loaded vert shader");
-		if ( ResourceManager::LoadShader( program, "data/shaders/shade.frag", GL_FRAGMENT_SHADER, 0, &shader ) & ERROR ) { throw exception(); }
-		Log("Loaded frag shader");
-		ResourceManager::AddShaderParameter( shader, "in_Position", SHDIN_POSITION );
-		ResourceManager::AddShaderParameter( shader, "in_Color", SHDIN_COLOR );
-		ResourceManager::AddShaderParameter( shader, "in_Normal", SHDIN_NORMAL );
-		ResourceManager::AddShaderParameter( shader, "in_Texcoord", SHDIN_TEXCOORD );
-
-		program->shaders.push_back( shader );
-		ResourceManager::LinkProgram( program );
-		renderer = new RenderGroup();
-		renderer->program = program;
-		ResourceManager::ResourceManagerSystem::renderers.push_back( renderer );
-		glUseProgram(0);
-
-
-
-		// load highlight shader
-		ShaderProgram *program2 = new ShaderProgram();
-		ResourceManager::LoadProgram( &program2 );
-		glUseProgram( program2->programid );
-		ShaderSet *shader2 = new ShaderSet();
-		if ( ResourceManager::LoadShader( program2, "data/shaders/highlight.vert", GL_VERTEX_SHADER, SHD_HGHLT, &shader2 ) & ERROR ) { throw exception(); }
-		Log("Loaded highlight vert shader");
-		if ( ResourceManager::LoadShader( program2, "data/shaders/highlight.frag", GL_FRAGMENT_SHADER, 0, &shader2 ) & ERROR ) { throw exception(); }
-		Log("Loaded highlight frag shader");
-		ResourceManager::AddShaderParameter( shader2, "in_Position", SHDIN_POSITION );
-		ResourceManager::AddShaderParameter( shader2, "in_Color", SHDIN_COLOR );
-		ResourceManager::AddShaderParameter( shader2, "in_Normal", SHDIN_NORMAL );
-		ResourceManager::AddShaderParameter( shader2, "in_Texcoord", SHDIN_TEXCOORD );
-
-		program2->shaders.push_back( shader2 );
-		ResourceManager::LinkProgram( program2 );
-		RenderGroup *renderer2 = new RenderGroup();
-		renderer2->program = program2;
-		ResourceManager::ResourceManagerSystem::renderers.push_back( renderer2 );
-		glUseProgram(0);
-		
-		*/
-
-		/*
-		// TODO: 
-		// if (glext_ARB_debug_output) {
-		// 	glEnable( GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB );
-		// }
-
-		// // initialize glew program
-		if ( ResourceManager::LoadProgram() & ERROR ) { throw exception(); }
-
-		// // load shaders
-		if ( ResourceManager::LoadShader( "data/shaders/shade.vert", GL_VERTEX_SHADER ) & ERROR ) { throw exception(); }
-		Log("Loaded vert shader");
-		if ( ResourceManager::LoadShader( "data/shaders/shade.frag", GL_FRAGMENT_SHADER ) & ERROR ) { throw exception(); }
-
-		glBindAttribLocation( ResourceManager::gl, 0, "in_Position" );
-		glBindAttribLocation( ResourceManager::gl, 1, "in_Color" );
-		glBindAttribLocation( ResourceManager::gl, 2, "in_Normal" );
-		glBindAttribLocation( ResourceManager::gl, 3, "in_Texcoord" );
-		Log("Loaded frag shader");
-		Log( "Successfully loaded shaders", LOG_INFO );
-
-		// link program
-		if ( ResourceManager::LinkProgram() & ERROR ) { throw exception(); }
-		*/
-	
-	} catch ( exception& e ) {
-
-		// error, shutdown system
-		Log( "Could not start GL program", LOG_ERROR );
-		LogSystem::shutdown();
-
-		return -1;
-	}
-
-// #define NO_INPUT
-// #define PLAY_LOCALLY
-#ifndef PLAY_LOCALLY
-	net::startup();
-	Log( "Started net" );
-	while ( net::uid == -1 ) {
-		net::send( (*net::actionBuffer.active)->back() );
-		usleep( 1000 * 1000 );
-	}
-	(*net::actionBuffer.active)->clear();
-	Log(str(format( "Connected as user %1%" )%net::uid));
-#endif
-
-
-
-
-
-	// ==========================================
-	//
-
-	try {
-		ResourceManager::LoadWorld(true);
-	} catch ( exception& e ) {
-		Log( "Could not load world", LOG_ERROR );
-		LogSystem::shutdown();
-
-		return -1;
-	}
 	glutDisplayFunc( display );
 	glutReshapeFunc( reshape );
 	glutKeyboardFunc( keyboard );
@@ -291,25 +155,70 @@ int main(int argc, char **argv) {
 	glutMotionFunc( mouseMove );
 
 
-	// TODO: using first program by default
-	// glUseProgram( ResourceManager::ResourceManagerSystem::programs.front()->programid );
-/*	glEnable( GL_TEXTURE_2D );
-	glEnable( GL_CULL_FACE );
-	glCullFace( GL_BACK );
-	glFrontFace( GL_CCW );
-	glProvokingVertex( GL_FIRST_VERTEX_CONVENTION );
-	glEnable( GL_DEPTH_TEST );
-	glDepthMask( GL_TRUE );
-	glDepthFunc( GL_LEQUAL );
-	glDepthRange( NGL_NEAR, NGL_FAR ); */
-	input_clock = glutGet( GLUT_ELAPSED_TIME );
-	camera.update();
+	// ==========================================
+	// start global systems
 
+// #define NO_INPUT
+// #define PLAY_LOCALLY
+#ifndef PLAY_LOCALLY
+	Log( "starting net.." );
+	net::startup();
+	// wait for reply from server for our UID (which means we've connected)
+	while ( net::uid == -1 ) {
+		net::send( (*net::actionBuffer.active)->back() );
+		usleep( 1000 * 1000 );
+	}
+	(*net::actionBuffer.active)->clear();
+	Log(str(format( "Connected as user %1%" )%net::uid));
+#endif
 
-	// thread t1(getMessage);
+	try {
+		ResourceManager::LoadWorld(true);
+	} catch ( exception& e ) {
+		Log( "Could not load world", LOG_ERROR );
+		LogSystem::shutdown();
+		return -1;
+	}
+
 #ifndef NO_INPUT
 	Input::startup();
 #endif
+
+
+	// LocalWorldAction
+	//
+	// This is an action which has been made locally, and is saved in the local
+	// action buffer waiting for a response from the server to see if it needs
+	// to be modified or cancelled
+	struct LocalWorldAction {
+		LocalWorldAction( WorldAction action, uint id, uint time ) : action(action), id(id), time(time) { }
+		WorldAction action; uint id; uint time;
+	};
+	typedef SwapBuffer<vector< LocalWorldAction >> LocalWorldActions;
+
+
+	/**
+	 * Main Loop
+	 *
+	 * We may create Local actions which are applied locally and stored on a
+	 * buffer. These local actions are sent off to the server and await
+	 * acknowledgement. Its possible that the action may need to be modified,
+	 * like another user closes a door as we're trying to walk through the door
+	 * way, and we haven't yet seen the door close; then afterwards we turn left
+	 * and move forward. The server could reply and tell us that our first
+	 * action failed, in which case we would cancel it out of the buffer and
+	 * resync all of the following actions (move back to our original spot, then
+	 * turn left, then move forward). 
+	 *
+	 * Other actions will be received from the server (from all users), and
+	 * applied to in the world.
+	 * NOTE: we do not acknowledge packets from the server (to cut down on noise
+	 * 		and processing time for the server); keep this in mind in case any
+	 * 		bugs show up later on which require us to change this around
+	input_clock = glutGet( GLUT_ELAPSED_TIME );
+	camera.update();
+	Log( "Ready." );
+	LocalWorldActions localActions = LocalWorldActions(); // actions made locally are placed here and confirmed from the server replies
 	while ( !requestClose ) {
 		/*
 		if ( newMsg ) {

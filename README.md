@@ -74,11 +74,14 @@ TODO
 	+ Setup Job queue for threads
 	+ Dev/Release compiling
 	+ look into Erlang/Haskell messaging system between objects
+	+ Hash id: world actions
 	
 	+ Serializer/Parser for saving/loading maps, clients initially connecting or loading pages
 	+ Voxel based terrain engine w/ sculpting brushes
 	+ Add items to world, rotate/scale/move, edit shaders/materials & live serializing/reloading
+		object collision detection (rotation, scaling; level of detail in collision: k-top)
 	+ Automatic portals through voxel terrain
+	+ Terrain collision detection
 	+ Skyboxes w/ weather system, day-night system, calendar/seasonal system
 	+ Mipmapping in pages; network sends through pages/portals; low priority job queue to update
 			further away pages; favour portals over pages
@@ -91,6 +94,10 @@ TODO
 	+ Tessellation shading
 	+ Count CPU performance (FPS rate), and manage shader quality accordingly
 	+ Dynamic lighting
+	+ Multipass rendering
+	+ Object query system
+	+ High precision clock
+	+ Action buffer resyncing
 
 
 Cleanup
@@ -209,6 +216,10 @@ Game Thoughts
 				drops you back to the beginning of the tier (OR the 1st tier level)
 				NOTE: higher level tiers of people are HUGELY powerful, but should really fear death (to lose 
 				their power)
+
+				You revive at your soulbound spot (a kingdome or some owned area) after X time; this
+				place gets an automated tax from all gold you earn, and a portion of what you lose
+				upon dying
 	> Combat -- able to climb and take hold of parts of enemy (run ontop and flip over while
 				pulling their arm or something); able to interact w/ enemy body; able to push around
 				enemy body (quaternion rotations); world objects interact with people & people with
@@ -245,17 +256,19 @@ Game Thoughts
 Coding Style
 --------------
 
+	* Header files: marginwrap 50
+	* Source files: marginwrap 80
 
 	/***
-	  * File
-	  *
-	  *	    Desc of how it works
-	  *
-	  * TODO:
-	  *  - x1
-	  *  - x2
-	  *			-details-
-	  **/
+	 * File
+	 *
+	 *	    Desc of how it works
+	 *
+	 * TODO
+	 *  - x1
+	 *  - x2
+	 *			-details-
+	 **/
 
 
 	#include "rendering.inc.h"
@@ -278,6 +291,14 @@ Coding Style
 		// group of functions
 		// ---------------------
 		func1(int x, int y, int z); // read this pixel
+		func2(int x, int y, int z); // read that pixel
+		func3(int x, int y, int z); // read those pixels
+
+		// ---------------------
+		// thisFunction
+		//
+		// An extended, long explanation of this function
+		// ---------------------
 	};
 
 	// ============================================================================
@@ -287,7 +308,6 @@ Coding Style
 	// @param1: desc
 	// @param2: desc
 	// @returns: desc
-	// ============================================================================
 	// ========================================================
 	longFunction ( param1, param2, ... ) {
 
