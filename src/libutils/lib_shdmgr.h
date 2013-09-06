@@ -5,6 +5,7 @@
 #include "util.inc.h"
 #include "libutils/lib_resmgr.h"
 
+#include <sstream>
 #include "extern/GL/glew.h"
 
 /*
@@ -12,7 +13,12 @@
  *
  * TODO
  *
- *  > transfer over shaders & rendergroup stuff
+ *  - transfer over shaders & rendergroup stuff
+ *  - multipass rendering
+ *  - improved protocol for defining rendergroups,
+ *  	and selecting a rendergroup
+ *  - remove glewInit from here (should only be init'd once
+ *  	and in a separate context)
  *
  ***/
 
@@ -22,10 +28,7 @@
 
 	Shader Manager
 
-	Handles all shaders and GL programs, this is a CLASS because
-	each world may contain a single shader manager; The server
-	will contain and manage multiple worlds (hence, multiple
-	shader managers)
+	Handles all shaders and GL programs
 
 =================================================
 */
@@ -88,7 +91,7 @@ const uint SHD_HGHLT = 1 << 2;
 
 // Shader Input
 const uint SHDIN_POSITION = 1;
-const uint SHDIN_COLOR   = 2;
+const uint SHDIN_COLOR    = 2;
 const uint SHDIN_NORMAL   = 3;
 const uint SHDIN_TEXCOORD = 4;
 const uint SHDIN_TEXTURE  = 5;

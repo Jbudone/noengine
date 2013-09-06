@@ -2,40 +2,36 @@
 #define __LIB_RESMGR_H__
 
 
-#include <stdio.h>
-#include <string>
-#include <cstring>
-#include <cstdlib>
-#include <sstream>
-#include <fstream>
-#include <boost/format.hpp>
-#include <boost/tokenizer.hpp>
 
 
-#include "extern/GL/glew.h"
 
 #include "util.inc.h"
+
+#include <cstring>
+#include <cstdlib>
+#include <fstream>
+
+#include "extern/GL/glew.h"
+#include <boost/tokenizer.hpp>
 
 #include "kernel/k_mesh.h"
 #include "kernel/k_entity.h"
 #include "kernel/k_camera.h"
 #include "kernel/k_world.h"
 
-using namespace std;
-using namespace Logger;
-
-using boost::format;
-using boost::str;
 using boost::tokenizer;
+
+
 /*
  * Resource Manager
  *
  * TODO
  *
- *  > multipassing (load shaders, unload shaders, RTT in multipassing)
- *  > free resources
- *  > mesh instancing
- *  > shared textures
+ *  - multipassing (load shaders, unload shaders, RTT in multipassing)
+ *  - dynamic lighting
+ *  - free resources
+ *  - mesh instancing
+ *  - shared textures
  *
  ***/
 
@@ -77,6 +73,15 @@ namespace ResourceManager {
 };
 
 
+/*
+=================================================
+
+	Texture
+
+	Contain texture details; used for easily sharing data resources
+
+=================================================
+*/
 struct Texture {
 	Texture(const char* filename, const uchar* imagedata, int width, int height);
 	Texture(const Texture &rhs);

@@ -159,6 +159,7 @@ Entity* ResourceManager::LoadMesh (RenderGroup* renderer, const char* filename) 
 
 	return entity;
 }
+// ============================================== //
 
 
 
@@ -226,13 +227,18 @@ t_error ResourceManager::LoadMeshMaterial (const char* filename, Mesh* mesh) {
 	fileHandle.close();
 	return NO_ERROR;
 }
+// ============================================== //
 
+
+// ============================================== //
+// Load the world
 void ResourceManager::LoadWorld(bool renderable) {
 	if (world) delete world;
 
 	world = new World(renderable);
 	world->loadWorld();
 }
+// ============================================== //
 
 void ResourceManager::shutdown() {
 	delete ResourceManager::world;

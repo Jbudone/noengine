@@ -108,6 +108,7 @@ Cleanup
 --------
 	
 	+ Networking component
+	+ ResourceManager component
 	+ Clean logging/comments
 	+ Setup & enforce code standards
 	+ Variable naming (more readable)

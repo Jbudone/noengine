@@ -29,6 +29,7 @@ ShaderProgram* ShaderManager::createProgram () {
 
 	return shaderProgram;
 }
+// ============================================== //
 
 // ============================================== //
 // Create a renderer
@@ -38,6 +39,7 @@ RenderGroup* ShaderManager::createRenderer (ShaderProgram* shaderProgram) {
 	renderers.push_back( renderer );
 	return renderer;
 }
+// ============================================== //
 
 // ============================================== //
 // Link the shaders in gl program
@@ -74,6 +76,7 @@ t_error ShaderManager::linkProgram (ShaderProgram* shaderProgram) {
 
 	return NO_ERROR;
 }
+// ============================================== //
 
 
 // ============================================== //
@@ -137,7 +140,10 @@ t_error ShaderManager::loadShader (ShaderProgram* program, const char* filename,
 
 	return NO_ERROR;
 }
+// ============================================== //
 
+// ============================================== //
+// add a parameter (shader uniform) to the shader set (programs)
 t_error ShaderManager::addShaderParameter ( ShaderSet* shaderSet, const char *param, uint description ) {
 
 	ShaderParameter* parameter = new ShaderParameter();
@@ -148,7 +154,9 @@ t_error ShaderManager::addShaderParameter ( ShaderSet* shaderSet, const char *pa
 
 	return NO_ERROR;
 }
+// ============================================== //
 
+// ============================================== //
 ShaderManager::~ShaderManager() {
 	for ( auto renderer : renderers ) {
 		for ( auto shader : renderer->program->shaders ) {

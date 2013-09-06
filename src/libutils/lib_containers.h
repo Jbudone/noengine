@@ -1,18 +1,18 @@
 #ifndef __LIB_CONTAINERS_H__
 #define __LIB_CONTAINERS_H__
 
-#include <stdio.h>
-#include <string>
-#include "libutils/lib_logger.h"
-#define CHAR0 48
-/*
+
+/***
  * Containers
  *
+ *	    Various data structures
+ *
  * TODO
+ *  - ...
  *
- *  > ...
- *
- ***/
+ **/
+
+#define CHAR0 48 // ASCII dec code for 0
 
 template<class T1, class T2, class T3>
 struct Triple {
@@ -21,6 +21,19 @@ struct Triple {
 	T1 t1; T2 t2; T3 t3;
 };
 
+
+/*
+=================================================
+
+	Bitfield
+
+  An extremely flexible container for storing
+  variable-length data structures and easily retrieving it
+  later. The way this is built is very efficient for storing
+  and reading back data later
+
+=================================================
+*/
 template<unsigned char SIZE>
 struct Bitfield {
 	Bitfield() {
@@ -121,8 +134,6 @@ struct Bitfield {
 	
 	const unsigned char size = SIZE;
 	unsigned char *fields;
-private:
-	// unsigned char *fields;
 };
 
 typedef Bitfield<32>  Bfield32_t ;

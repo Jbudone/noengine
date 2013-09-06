@@ -2,26 +2,35 @@
 #define __K_MEMORY_H__
 
 
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string>
-#include <boost/format.hpp>
-
-using namespace std;
-
-using boost::format;
-using boost::str;
-/*
+/***
  * Memory
  *
+ *	    More data structures
+ *
  * TODO
+ *  - implement various storage types (pool, double-sided allocator, one-frame allocator)
+ *  - pointer-fixup table (GUID)
+ *  - SwapBuffer: do we need to store as T** or will T* work? Can we make the swap more atomic? (xor swap)
  *
- *  > implement various storage types (pool, double-sided allocator, one-frame allocator)
- *  > pointer-fixup table (GUID)
- *
- ***/
+ **/
 
+
+#include "util.inc.h"
+
+/*
+=================================================
+
+	SwapBuffer
+
+ In order to avoid shared resource fighting and race
+ conditions, the swap buffer allows you to write into one
+ object and then use the other one for reading. For example
+ the network may continue to receive packets and place them
+ into the active buffer, then when the read takes place the
+ we can swap() the buffer and read from the inactive buffer
+
+=================================================
+*/
 template<class T>
 struct SwapBuffer {
 	T **active   = 0;
