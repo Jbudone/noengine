@@ -22,6 +22,8 @@
 #include "libutils/lib_resmgr.h"
 #include "kernel/k_net.client.h"
 
+// #define NO_INPUT
+#define PLAY_LOCALLY
 
 
 void check_gl_error();
@@ -111,6 +113,18 @@ namespace Input {
 	}
 };
 
+	// LocalWorldAction
+	//
+	// This is an action which has been made locally, and is saved in the local
+	// action buffer waiting for a response from the server to see if it needs
+	// to be modified or cancelled
+	struct LocalWorldAction {
+		LocalWorldAction( WorldAction action, uint id, uint time ) : action(action), id(id), time(time) { }
+		WorldAction action; uint id; uint time;
+	};
+	typedef SwapBuffer<vector< LocalWorldAction >> LocalWorldActions;
+	LocalWorldActions localActions = LocalWorldActions(); // actions made locally are placed here and confirmed from the server replies
+	UIManager* ui;
 int main(int argc, char **argv) {
 	
 	LogSystem::startup( CFG_LOGFILE );
@@ -158,8 +172,6 @@ int main(int argc, char **argv) {
 	// ==========================================
 	// start global systems
 
-// #define NO_INPUT
-// #define PLAY_LOCALLY
 #ifndef PLAY_LOCALLY
 	Log( "starting net.." );
 	net::startup();
@@ -180,21 +192,13 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 
+	ui = new UIManager( ResourceManager::world->shadermgr->renderers.back()->program->programid, width, height );
+
 #ifndef NO_INPUT
 	Input::startup();
 #endif
 
 
-	// LocalWorldAction
-	//
-	// This is an action which has been made locally, and is saved in the local
-	// action buffer waiting for a response from the server to see if it needs
-	// to be modified or cancelled
-	struct LocalWorldAction {
-		LocalWorldAction( WorldAction action, uint id, uint time ) : action(action), id(id), time(time) { }
-		WorldAction action; uint id; uint time;
-	};
-	typedef SwapBuffer<vector< LocalWorldAction >> LocalWorldActions;
 
 
 	/**
@@ -219,7 +223,6 @@ int main(int argc, char **argv) {
 	input_clock = glutGet( GLUT_ELAPSED_TIME );
 	camera.update();
 	Log( "Ready." );
-	LocalWorldActions localActions = LocalWorldActions(); // actions made locally are placed here and confirmed from the server replies
 	while ( !requestClose ) {
 
 #ifndef PLAY_LOCALLY
@@ -340,6 +343,7 @@ void display() {
 	glClearDepth( 1.0f );
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 	ResourceManager::world->render();
+	ui->render();
 	
 	glutSwapBuffers();
 	glutPostRedisplay();

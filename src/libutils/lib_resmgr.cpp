@@ -233,9 +233,9 @@ t_error ResourceManager::LoadMeshMaterial (const char* filename, Mesh* mesh) {
 // ============================================== //
 // Load the world
 void ResourceManager::LoadWorld(bool renderable) {
-	if (world) delete world;
+	if ( world ) delete world;
 
-	world = new World(renderable);
+	world = new World( renderable );
 	world->loadWorld();
 }
 // ============================================== //

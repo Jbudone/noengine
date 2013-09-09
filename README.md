@@ -257,12 +257,25 @@ Game Thoughts
 				for objects (also rotate + scale + edit shader); all entities (including terrain)
 				have an edit button for shaders + materials (also live reloading + serializing
 				change globally, also AI characteristics & stats & inventory
+	> Mobs --
+		> Statues -- statues grow in certain areas (planes) where there is no activity. When the
+					world steps forward it checks through a poisson distribution of points around
+					the map (points that are close enough to previously determined points simply
+					fall under that same point); those points will grow in strength until eventually
+					it hits a threshold to grow a statue. Statues are more likely to grow in groups
+					(that point continues growing and results in the statue area growing in
+					 numbers), when those numbers grow high enough then the middle statue grows into
+					a higher level statue. Statues work like Dungeon Crawl type statues (cannot
+					move, extremely aggressive and VERY powerful with a large range area); various
+					statues include: archers, lightning statues, ice/fire statues, moklob plants
 
 Coding Style
 --------------
 
 	* Header files: marginwrap 50
 	* Source files: marginwrap 80
+	* use spaces between brackets for args:  fetchPixel( x, y, z );
+	* favour camel casing in member and method names
 
 	/***
 	 * File

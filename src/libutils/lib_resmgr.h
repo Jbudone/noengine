@@ -2,7 +2,18 @@
 #define __LIB_RESMGR_H__
 
 
-
+/*
+ * Resource Manager
+ *
+ * TODO
+ *
+ *  - multipassing (load shaders, unload shaders, RTT in multipassing)
+ *  - dynamic lighting
+ *  - free resources
+ *  - mesh instancing
+ *  - shared textures
+ *
+ ***/
 
 
 #include "util.inc.h"
@@ -18,22 +29,9 @@
 #include "kernel/k_entity.h"
 #include "kernel/k_camera.h"
 #include "kernel/k_world.h"
+#include "kernel/k_ui.h"
 
 using boost::tokenizer;
-
-
-/*
- * Resource Manager
- *
- * TODO
- *
- *  - multipassing (load shaders, unload shaders, RTT in multipassing)
- *  - dynamic lighting
- *  - free resources
- *  - mesh instancing
- *  - shared textures
- *
- ***/
 
 
 /*

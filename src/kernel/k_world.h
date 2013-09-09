@@ -2,19 +2,24 @@
 #define __K_WORLD_H__
 
 
-#include "util.inc.h"
-#include "libutils/lib_resmgr.h"
-#include "libutils/lib_shdmgr.h"
-#include "kernel/k_camera.h"
-
 /*
  * World
  *
  * TODO
  *
- *  > server/client world
+ *  - scalable way to load all shaders
+ *  - mix portals w/ pages
+ *  - why can't we delete[] pages on destructor?
+ *  - improve world pick (pages, sphere, AABB,
+ *  	real intersection); dont highlight
  *
  ***/
+
+#include "util.inc.h"
+
+#include "libutils/lib_resmgr.h"
+#include "libutils/lib_shdmgr.h"
+#include "kernel/k_camera.h"
 
 
 /*
@@ -29,16 +34,7 @@
 */
 
 struct WorldAction;
-// typedef union { WorldAction* worldAction; bool succeeded; } WorldActionResponse;
-struct WorldActionResponse {
-	WorldActionResponse();
-	WorldActionResponse(const WorldAction& worldAction, bool succeeded);
-	WorldActionResponse(const WorldActionResponse& rhs);
-	WorldActionResponse& operator=(const WorldActionResponse& rhs);
-	~WorldActionResponse();
-	WorldAction* worldAction;
-	bool succeeded;
-};
+struct WorldActionResponse;
 template<class T> struct SwapBuffer;
 typedef SwapBuffer<vector<WorldAction>> WorldActions;
 typedef vector<WorldActionResponse*> WorldActionResponses;
@@ -59,6 +55,15 @@ public:
 	void step(float ms, WorldActionResponses* responses = 0); // step physics forward
 
 	vector<Entity*> entities;
+
+	// Paging
+	// ---------------------------------------------
+	// The world stores entities in pages in order to manage
+	// entities as efficiently as possible. Pages are
+	// connected in an octree data structure, and all 8
+	// adjacent pages will be loaded and managed along with
+	// the page you currently reside in
+	// ---------------------------------------------
 	int npages_x, npages_y;
 	Page* pages[(int)(WRLD_MAX_HEIGHT/WRLD_PAGE_HEIGHT)][(int)(WRLD_MAX_WIDTH/WRLD_PAGE_WIDTH)];
 	Page* page;
@@ -104,6 +109,20 @@ static const uchar ACTION_ARGS_CREATE_MESH  = 0;
 static const uchar ACTION_ARGS_CREATE_LIGHT = 1;
 
 
+
+/*
+=================================================
+
+	WorldAction
+
+	When a user initiates some state change of an object or
+	some thing we can describe that action in this
+	WorldAction with a bitmask for the action, and a
+	Bitfield to describe the arguments to that action
+
+=================================================
+*/
+
 struct WorldAction {
 	WorldAction(uint action, const Bfield128_t& args, int page = -1, int initiator = -1, uint id = 0);
 	WorldAction(const WorldAction &rhs);
@@ -148,6 +167,15 @@ private:
 	WorldActionResponse* apply_push_entity(World* world, bool peekOutcome);
 };
 
+struct WorldActionResponse {
+	WorldActionResponse();
+	WorldActionResponse(const WorldAction& worldAction, bool succeeded);
+	WorldActionResponse(const WorldActionResponse& rhs);
+	WorldActionResponse& operator=(const WorldActionResponse& rhs);
+	~WorldActionResponse();
+	WorldAction* worldAction;
+	bool succeeded;
+};
 
 #endif
 

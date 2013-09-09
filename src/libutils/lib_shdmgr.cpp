@@ -92,7 +92,7 @@ t_error ShaderManager::loadShader (ShaderProgram* program, const char* filename,
 	ifstream fileHandle( filename );
 	if ( !fileHandle.is_open() ) {
 		Log( str( format( "Error opening shader file (%1%)" ) % filename ), LOG_ERROR );
-		throw BadFileException(filename);
+		throw BadFileException( filename );
 	}
 
 	// load the shader source

@@ -7,6 +7,9 @@ World::World(bool renderable)
 }
 
 void World::loadWorld() {
+
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	// Setup shaders
 	ShaderProgram* program = 0;
 	RenderGroup* renderer = 0;
 	if ( renderable ) {
@@ -18,9 +21,9 @@ void World::loadWorld() {
 		glUseProgram( program->programid );
 		ShaderSet *shader = new ShaderSet();
 		if ( shadermgr->loadShader( program, "data/shaders/shade.vert", GL_VERTEX_SHADER, SHD_PHONG | SHD_BUMP, &shader ) & ERROR ) { throw exception(); }
-		Log("Loaded vert shader");
+		Log( "Loaded vert shader" );
 		if ( shadermgr->loadShader( program, "data/shaders/shade.frag", GL_FRAGMENT_SHADER, 0, &shader ) & ERROR ) { throw exception(); }
-		Log("Loaded frag shader");
+		Log( "Loaded frag shader" );
 		shadermgr->addShaderParameter( shader, "in_Position", SHDIN_POSITION );
 		shadermgr->addShaderParameter( shader, "in_Color", SHDIN_COLOR );
 		shadermgr->addShaderParameter( shader, "in_Normal", SHDIN_NORMAL );
@@ -39,9 +42,9 @@ void World::loadWorld() {
 		glUseProgram( program2->programid );
 		ShaderSet *shader2 = new ShaderSet();
 		if ( shadermgr->loadShader( program2, "data/shaders/highlight.vert", GL_VERTEX_SHADER, SHD_HGHLT, &shader2 ) & ERROR ) { throw exception(); }
-		Log("Loaded highlight vert shader");
+		Log( "Loaded highlight vert shader" );
 		if ( shadermgr->loadShader( program2, "data/shaders/highlight.frag", GL_FRAGMENT_SHADER, 0, &shader2 ) & ERROR ) { throw exception(); }
-		Log("Loaded highlight frag shader");
+		Log( "Loaded highlight frag shader" );
 		shadermgr->addShaderParameter( shader2, "in_Position", SHDIN_POSITION );
 		shadermgr->addShaderParameter( shader2, "in_Color", SHDIN_COLOR );
 		shadermgr->addShaderParameter( shader2, "in_Normal", SHDIN_NORMAL );
@@ -52,15 +55,37 @@ void World::loadWorld() {
 		RenderGroup* renderer2 = shadermgr->createRenderer( program2 );
 		glUseProgram(0);
 
-	}
 
+
+		// load UI shader
+		ShaderProgram *program3 = shadermgr->createProgram();
+		glUseProgram( program3->programid );
+		ShaderSet *shader3 = new ShaderSet();
+		if ( shadermgr->loadShader( program3, "data/shaders/ui.vert", GL_VERTEX_SHADER, SHD_NONE, &shader3 ) & ERROR ) { throw exception(); }
+		Log( "Loaded UI vert shader" );
+		if ( shadermgr->loadShader( program3, "data/shaders/ui.frag", GL_FRAGMENT_SHADER, 0, &shader3 ) & ERROR ) { throw exception(); }
+		Log( "Loaded UI frag shader" );
+		shadermgr->addShaderParameter( shader3, "in_Position", SHDIN_POSITION );
+
+		program3->shaders.push_back( shader3 );
+		shadermgr->linkProgram( program3 );
+		RenderGroup* renderer3 = shadermgr->createRenderer( program3 );
+		glUseProgram(0);
+
+	}
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	// Add world objects
 	ResourceManager::LoadMesh( renderer, "data/cube.obj" );
-	buildPages();
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 
 	if ( renderable ) {
 
 		// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-		// TODO: Add lights
+		// Add lights
 
 		GLint light;
 		light = glGetUniformLocation( program->programid, "lights[0].position" );
@@ -83,6 +108,8 @@ void World::loadWorld() {
 		glDepthRange( NGL_NEAR, NGL_FAR );
 	}
 
+
+	buildPages();
 	selection = 0;
 	page = 0;
 	friction = 0.5f;
@@ -121,12 +148,12 @@ Entity* World::worldPick(float xw, float yw) {
 	glm::vec3 rayPos = camera.position;
 
 	// ray direction
-	glm::vec4 rayDir = glm::vec4( xw, yw, 1.0f, 1.0f );
+	glm::vec4 rayDir      = glm::vec4( xw, yw, 1.0f, 1.0f );
 	glm::mat4 perspective = camera.perspective;
-	glm::quat quatY = glm::angleAxis( glm::degrees( camera.rotation.y ), glm::vec3( -1.0f, 0.0f, 0.0f ) );
-	glm::quat quatX = glm::angleAxis( glm::degrees( camera.rotation.x ), glm::vec3( 0.0f, 1.0f, 0.0f ) );
-	glm::quat quat = quatY * quatX;
-	glm::mat4 view = glm::toMat4(quat);
+	glm::quat quatY       = glm::angleAxis( glm::degrees( camera.rotation.y ), glm::vec3( -1.0f, 0.0f, 0.0f ) );
+	glm::quat quatX       = glm::angleAxis( glm::degrees( camera.rotation.x ), glm::vec3( 0.0f, 1.0f, 0.0f ) );
+	glm::quat quat        = quatY * quatX;
+	glm::mat4 view        = glm::toMat4(quat);
 
 
 

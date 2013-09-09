@@ -20,8 +20,9 @@
  *
  * TODO
  *
- *  > create instance of mesh
- *  > handling multiple materials, textures
+ *  - create instance of mesh
+ *  - handling multiple materials, textures
+ *  - delete vao in construction (in case previously setup)
  *
  ***/
 

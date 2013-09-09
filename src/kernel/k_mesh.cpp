@@ -245,7 +245,7 @@ t_error MeshRenderData::loadTexture(const char* filename, uchar texType) {
 
 // ============================================== //
 // setup display list for mesh
-t_error MeshRenderData::construct(Mesh* mesh,bool reconstruction) {
+t_error MeshRenderData::construct(Mesh* mesh, bool reconstruction) {
 
 	this->mesh = mesh;
 	if ( !reconstruction ) {
@@ -288,13 +288,13 @@ t_error MeshRenderData::construct(Mesh* mesh,bool reconstruction) {
 	glUniform3f( glSpecular, mesh->color_specular.t1, mesh->color_specular.t2, mesh->color_specular.t3 );
 
 	// setup textures
-	glActiveTexture(GL_TEXTURE1);
-	glEnable(GL_TEXTURE_2D);
-	glBindTexture(GL_TEXTURE_2D, textures[1]);
+	glActiveTexture( GL_TEXTURE1 );
+	glEnable( GL_TEXTURE_2D );
+	glBindTexture( GL_TEXTURE_2D, textures[1] );
 
-	glActiveTexture(GL_TEXTURE0);
-	glEnable(GL_TEXTURE_2D);
-	glBindTexture(GL_TEXTURE_2D, textures[0]);
+	glActiveTexture( GL_TEXTURE0 );
+	glEnable( GL_TEXTURE_2D );
+	glBindTexture( GL_TEXTURE_2D, textures[0] );
 
 
 	// cleanup

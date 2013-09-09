@@ -2,12 +2,6 @@
 #define __LIB_SHDMGR_H__
 
 
-#include "util.inc.h"
-#include "libutils/lib_resmgr.h"
-
-#include <sstream>
-#include "extern/GL/glew.h"
-
 /*
  * Shader Manager
  *
@@ -22,6 +16,12 @@
  *
  ***/
 
+
+#include "util.inc.h"
+#include "libutils/lib_resmgr.h"
+
+#include <sstream>
+#include "extern/GL/glew.h"
 
 /*
 =================================================
@@ -88,6 +88,7 @@ struct RenderGroup {
 const uint SHD_PHONG = 1 << 0;
 const uint SHD_BUMP  = 1 << 1;
 const uint SHD_HGHLT = 1 << 2;
+const uint SHD_NONE  = 1 << 3;
 
 // Shader Input
 const uint SHDIN_POSITION = 1;
