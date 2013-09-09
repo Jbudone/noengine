@@ -5,6 +5,7 @@ in vec2 in_Texcoord;
 out vec3 out_Color;
 out vec2 out_texCoord;
 out float out_ldotn;
+out vec3 out_Position;
 uniform vec3 ambient = vec3(0.0, 1.0, 0.3);
 uniform vec3 diffuse = vec3(1.0, 1.0, 0.3);
 uniform vec3 specular = vec3(0.0, 0.0, 1.0);
@@ -23,5 +24,6 @@ void main()
 	out_texCoord = in_Texcoord;
 	out_Color = ambient * lDotN;
 	gl_Position = vec4(in_Position,1.0) * MVP;
+	out_Position = gl_Position.xyz;
 }
 
