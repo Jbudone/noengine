@@ -1,9 +1,11 @@
 #version 130
 in vec2 in_Position;
-out vec3 out_Color;
+in vec2 in_Texcoord;
+
+out vec2 out_texCoord;
 
 void main() {
-	out_Color = vec3(1.0, 0.0, 0.0);
+	out_texCoord = in_Texcoord;
 	gl_Position = vec4(in_Position, -1.0, 1.0);
 }
 

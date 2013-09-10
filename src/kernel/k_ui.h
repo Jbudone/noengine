@@ -9,6 +9,7 @@
  *
  *  - read UI from declarative template
  *  - write UI changes to file
+ *  - link with shared textures in resources
  *  - textures & borders on windows
  *  - render text
  *
@@ -31,8 +32,9 @@
 */
 
 struct UIVertexBuffer {
-	UIVertexBuffer(float x, float y) : x(x), y(y) { }
+	UIVertexBuffer(float x, float y, float t_x, float t_y) : x(x), y(y), t_x(t_x), t_y(t_y) { }
 	float x, y;
+	float t_x, t_y;
 };
 
 struct UIElement;

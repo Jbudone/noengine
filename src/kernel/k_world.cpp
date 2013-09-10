@@ -35,6 +35,7 @@ void World::loadWorld() {
 		program->shaders.push_back( shader );
 		shadermgr->linkProgram( program );
 		renderer = shadermgr->createRenderer( program );
+		Log(str(format( "Created shader (shade): %1%" ) % (ResourceManager::world->shadermgr->renderers.back()->program->programid) ));
 		glUseProgram(0);
 
 
@@ -55,6 +56,7 @@ void World::loadWorld() {
 		program2->shaders.push_back( shader2 );
 		shadermgr->linkProgram( program2 );
 		RenderGroup* renderer2 = shadermgr->createRenderer( program2 );
+		Log(str(format( "Created shader (highlight): %1%" ) % (ResourceManager::world->shadermgr->renderers.back()->program->programid) ));
 		glUseProgram(0);
 
 
@@ -68,10 +70,12 @@ void World::loadWorld() {
 		if ( shadermgr->loadShader( program3, "data/shaders/ui.frag", GL_FRAGMENT_SHADER, 0, &shader3 ) & ERROR ) { throw exception(); }
 		Log( "Loaded UI frag shader" );
 		shadermgr->addShaderParameter( shader3, "in_Position", SHDIN_POSITION );
+		shadermgr->addShaderParameter( shader3, "in_Texcoord", SHDIN_TEXCOORD );
 
 		program3->shaders.push_back( shader3 );
 		shadermgr->linkProgram( program3 );
 		RenderGroup* renderer3 = shadermgr->createRenderer( program3 );
+		Log(str(format( "Created shader (UI): %1%" ) % (ResourceManager::world->shadermgr->renderers.back()->program->programid) ));
 		glUseProgram(0);
 
 	}
@@ -207,6 +211,7 @@ Entity* World::worldPick(float xw, float yw) {
 
 
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	/*
 	if ( selection ) {
 		// unselect entity
 		bool done = false;
@@ -261,6 +266,7 @@ Entity* World::worldPick(float xw, float yw) {
 		}
 
 	}
+	*/
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 

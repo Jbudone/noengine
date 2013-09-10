@@ -225,7 +225,6 @@ int main(int argc, char **argv) {
 	Log( "Ready." );
 	while ( !requestClose ) {
 
-#ifndef PLAY_LOCALLY
 		// copy local action buffer to world action buffer, net send buffer
 		// when the local action has been added to the world actions, it becomes active and is added to the 
 		// active part of the swapbuffer; that way we only have to check the active actions for receives
@@ -235,13 +234,16 @@ int main(int argc, char **argv) {
 			(*ResourceManager::world->actions.active)->push_back( localAction.action );
 			Log(str(format("Adding local action to active local actions (%1%): %2%")%localAction.action.action%localAction.action.args));
 			(*localActions.active)->push_back( localAction );
+#ifndef PLAY_LOCALLY
 			// TODO: set fast low-collision hashed id from (uid,reqid,time)
 			Log(str(format("Adding local action to net action buffer (%1%): %2%")%localAction.action.action%localAction.action.args));
 			(*net::actionBuffer.active)->push_back( LocalAction( (++net::reqid), 0, 0, localAction.action.action, localAction.action.args, (net::uid*256 + net::reqid) ) );
+#endif
 		}
 		(*localActions.inactive)->clear();
 
 
+#ifndef PLAY_LOCALLY
 		if ( !net::step(10) ) {
 			break; // problem with network
 		}

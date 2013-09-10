@@ -95,6 +95,7 @@ void UIElement::construct(float screenWidth, float screenHeight) {
 	this->createVertexBuffer( screenWidth, screenHeight );
 
 	glUseProgram(gl);
+	Log(str(format( "Using shader (%1%) for UI element" ) % (gl) ));
 	glGenVertexArrays( 1, &vao );
 	glBindVertexArray( vao );
 
@@ -102,10 +103,34 @@ void UIElement::construct(float screenWidth, float screenHeight) {
 	glBindBuffer( GL_ARRAY_BUFFER, vbo );
 	glBufferData( GL_ARRAY_BUFFER, vertexBuffer.size() * sizeof(UIVertexBuffer), vertexBuffer.data(), GL_STATIC_DRAW );
 
-	GLint glVertex = glGetAttribLocation( gl, "in_Position" );
+	GLint glVertex   = glGetAttribLocation( gl, "in_Position" );
+	GLint glTexcoord = glGetAttribLocation( gl, "in_Texcoord" );
 	glEnableVertexAttribArray( glVertex );
+	glEnableVertexAttribArray( glTexcoord );
 	glVertexAttribPointer( glVertex, 2, GL_FLOAT, GL_FALSE, sizeof(UIVertexBuffer), (void*)0 );
+	glVertexAttribPointer( glTexcoord, 2, GL_FLOAT, GL_FALSE, sizeof(UIVertexBuffer), (void*)( sizeof(float) * 2 ) );
 
+	// setup textures
+	int imgWidth, imgHeight;
+	unsigned char* imageData = SOIL_load_image( "data/textures/brick1.jpg", &imgWidth, &imgHeight, 0, SOIL_LOAD_RGB );
+
+	// copy file to opengl
+	GLuint tex;
+	glGenTextures( 1, &tex );
+	glActiveTexture( GL_TEXTURE2 );
+	glEnable( GL_TEXTURE_2D );
+	glBindTexture( GL_TEXTURE_2D, tex );
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, imgWidth, imgHeight, 0,
+			GL_RGB, GL_UNSIGNED_BYTE, imageData );
+	glUniform1i( glGetUniformLocation( gl, "Tex2" ), 2 );
+
+	// mipmapping
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+	glGenerateMipmap( GL_TEXTURE_2D );
+
+	SOIL_free_image_data( imageData );
+	glActiveTexture( 0 );
 	glBindBuffer( GL_ARRAY_BUFFER, 0 );
 	glBindVertexArray( 0 );
 }
@@ -120,10 +145,14 @@ void UIWindow::createVertexBuffer(float screenWidth, float screenHeight) {
 		  right  = 2 * (int)(x+width) / screenWidth - 1,
 		  top    = -2 * (int)y / screenHeight + 1,
 		  bottom = -2 * (int)(y+height) / screenHeight + 1;
-	vertexBuffer.push_back( UIVertexBuffer( left, top ) );
-	vertexBuffer.push_back( UIVertexBuffer( left, bottom ) );
-	vertexBuffer.push_back( UIVertexBuffer( right, bottom ) );
-	vertexBuffer.push_back( UIVertexBuffer( right, top ) );
+	float texLeft   = 0.0f,
+		  texRight  = 1.0f,
+		  texTop    = 0.0f,
+		  texBottom = 1.0f;
+	vertexBuffer.push_back( UIVertexBuffer( left, top, texLeft, texTop ) );
+	vertexBuffer.push_back( UIVertexBuffer( left, bottom, texLeft, texBottom ) );
+	vertexBuffer.push_back( UIVertexBuffer( right, bottom, texRight, texBottom ) );
+	vertexBuffer.push_back( UIVertexBuffer( right, top, texRight, texTop ) );
 }
 // ============================================== //
 
