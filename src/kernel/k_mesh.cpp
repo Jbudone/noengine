@@ -1,11 +1,15 @@
 #include "kernel/k_mesh.h"
 
+// ============================================== //
 Mesh::Mesh(bool renderable) : renderable(renderable) {
 	renderData = 0;
 	if ( renderable ) renderData = new MeshRenderData();
 }
 Mesh::~Mesh() { }
+// ============================================== //
 
+
+// ============================================== //
 void Mesh::addVertex(const float x, const float y, const float z) {
 	vertices.push_back(x);
 	vertices.push_back(y);
@@ -14,18 +18,27 @@ void Mesh::addVertex(const float x, const float y, const float z) {
 	colors.push_back(0.3);
 	colors.push_back(1.0);
 }
+// ============================================== //
 
+
+// ============================================== //
 void Mesh::addVertexNormal(const float x, const float y, const float z) {
 	normals.push_back(x);
 	normals.push_back(y);
 	normals.push_back(z);
 }
+// ============================================== //
 
+
+// ============================================== //
 void Mesh::addVertexTex(const float s, const float t) {
 	texcoords.push_back(s);
 	texcoords.push_back(t);
 }
+// ============================================== //
 
+
+// ============================================== //
 void Mesh::pushVertex(ushort v_index, ushort t_index, ushort n_index) {
 	v_index *= 3;
 	t_index *= 2;
@@ -33,16 +46,24 @@ void Mesh::pushVertex(ushort v_index, ushort t_index, ushort n_index) {
 	vertexBuffers.push_back( VertexBuffer( vertices[v_index], vertices[v_index+1], vertices[v_index+2],
 											texcoords[t_index], texcoords[t_index+1],
 											normals[n_index], normals[n_index+1], normals[n_index+2] ) );
-	// Log( str( format( "Pushing VertexBuffer([%1%,%2%,%3%],[%4%,%5%],[%6%,%7%,%8%])" ) % vertices[v_index] % vertices[v_index+1] % vertices[v_index+2] % texcoords[t_index] % texcoords[t_index+1] % normals[n_index] % normals[n_index+1] % normals[n_index+2] ) );
 }
+// ============================================== //
+
 
 // ============================================== //
 // load image and send to shader texture
 void Mesh::loadTexture(const char* filename, const uchar textureType) {
 	textures.push_back( TextureFile( filename, textureType ) );
 }
+// ============================================== //
 
 
+// ============================================== //
+/* Where (if anywhere) does the ray intersect with the given triangle coordinates?
+ *
+ * This uses a standardized method for ray/triangle intersection testing; this code is not
+ * my own, but has been accepted as the industry standard for ray/triangle testing
+ **/
 float Mesh::rayIntersectTriangle(glm::vec3 position, glm::vec3 direction,
 		glm::vec3 v0, glm::vec3 v1, glm::vec3 v2) {
 
@@ -70,7 +91,6 @@ float Mesh::rayIntersectTriangle(glm::vec3 position, glm::vec3 direction,
 	
 	if ( r < 0.0f ) return 0; // ray points away from triangle
 	glm::vec3 intersection = position + r * direction; // intersection of ray & plane
-// Log(str(format("  Intersects triplane at (%1%,%2%,%3%)")%intersection.x%intersection.y%intersection.z));
 
 	// is intersection inside triangle?
 	float uu, uv, vv, wu, wv, D;
@@ -98,15 +118,24 @@ float Mesh::rayIntersectTriangle(glm::vec3 position, glm::vec3 direction,
 	return glm::dot( vHit, vHit );
 	return 1; // TODO: intersection inside triangle..where exactly?
 }
+// ============================================== //
 
 
+// ============================================== //
 float Mesh::lineIntersects(glm::vec3 position, glm::vec3 direction) {
 
 	// loop through quads
 	glm::vec4 triangles[2][3];
+
+
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	// modify the vertex buffers for our world-space mesh
+	// TODO: include scale/rotation
 	glm::mat4 model = -1 * glm::translate( glm::mat4(1.0f), this->position );
 	// model = glm::scale( model, glm::vec3(0.5f) );
-	glm::mat4 mvp = model; //glm::mat4(1.0f);
+	glm::mat4 mvp = model;
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 	float nearestHit = 0.0f, thisHit = 0.0f;
 	for ( uint i=0; i<vertexBuffers.size(); i+=4 ) {
 		// triangulate this quad, and project into world space
@@ -116,55 +145,29 @@ float Mesh::lineIntersects(glm::vec3 position, glm::vec3 direction) {
 		triangles[1][2]                   = mvp * glm::vec4( vertexBuffers[i+3].v_x, vertexBuffers[i+3].v_y, vertexBuffers[i+3].v_z, 1.0f );
 		
 		// intersection w/ triangle?
-		
-		
-		/*
-		Log("MVP Matrix: ");
-		Log( str( format("\t|%1%,%2%,%3%,%4%|") % mvp[0][0] % mvp[0][1] % mvp[0][2] % mvp[0][3] ), LOG_DEBUG );
-		Log( str( format("\t|%1%,%2%,%3%,%4%|") % mvp[1][0] % mvp[1][1] % mvp[1][2] % mvp[1][3] ), LOG_DEBUG );
-		Log( str( format("\t|%1%,%2%,%3%,%4%|") % mvp[2][0] % mvp[2][1] % mvp[2][2] % mvp[2][3] ), LOG_DEBUG );
-		Log( str( format("\t|%1%,%2%,%3%,%4%|") % mvp[3][0] % mvp[3][1] % mvp[3][2] % mvp[3][3] ), LOG_DEBUG );
-
-		
-		Log(str(format(" testing Triangle: (%1%,%2%,%3%), (%4%,%5%,%6%), (%7%,%8%,%9%)")%
-			// vertexBuffers[i+0].v_x % vertexBuffers[i+0].v_y % vertexBuffers[i+0].v_z % 
-			// vertexBuffers[i+1].v_x % vertexBuffers[i+1].v_y % vertexBuffers[i+1].v_z % 
-			// vertexBuffers[i+2].v_x % vertexBuffers[i+2].v_y % vertexBuffers[i+2].v_z ));
-			triangles[0][0].x % triangles[0][0].y % triangles[0][0].z %
-			triangles[0][1].x % triangles[0][1].y % triangles[0][1].z %
-			triangles[0][2].x % triangles[0][2].y % triangles[0][2].z ));
-		
-		*/
-			
-		
 		thisHit = rayIntersectTriangle( position, direction, triangles[0][0].xyz, triangles[0][1].xyz, triangles[0][2].xyz );
 		if ( thisHit > 0.0f ) nearestHit = thisHit;
 
-		
-		/*
-		Log(str(format(" testing Triangle: (%1%,%2%,%3%), (%4%,%5%,%6%), (%7%,%8%,%9%)")%
-			// vertexBuffers[i+0].v_x % vertexBuffers[i+0].v_y % vertexBuffers[i+0].v_z % 
-			// vertexBuffers[i+2].v_x % vertexBuffers[i+2].v_y % vertexBuffers[i+2].v_z % 
-			// vertexBuffers[i+3].v_x % vertexBuffers[i+3].v_y % vertexBuffers[i+3].v_z ));
-			triangles[1][0].x % triangles[1][0].y % triangles[1][0].z %
-			triangles[1][1].x % triangles[1][1].y % triangles[1][1].z %
-			triangles[1][2].x % triangles[1][2].y % triangles[1][2].z ));
-			*/
-		
 		thisHit = rayIntersectTriangle( position, direction, triangles[1][0].xyz, triangles[1][1].xyz, triangles[1][2].xyz );
-		if ( thisHit > 0.0f ) nearestHit = thisHit;
+		if ( thisHit > 0.0f && ( nearestHit == 0.0f || thisHit < nearestHit ) ) nearestHit = thisHit;
 	}
 	
 	// return nearest intersection
 	return nearestHit;
 }
+// ============================================== //
 
+
+// ============================================== //
 void Mesh::setupRenderData() {
 	if ( renderable ) {
 		renderData->construct(this);
 	}
 }
+// ============================================== //
 
+
+// ============================================== //
 void Mesh::render() {
 	if (renderable) {
 		
@@ -177,15 +180,13 @@ void Mesh::render() {
 		renderData->render(model);
 	}
 }
+// ============================================== //
 
-MeshRenderData::MeshRenderData() {
+MeshRenderData::MeshRenderData() { }
+MeshRenderData::~MeshRenderData() { }
 
-}
 
-MeshRenderData::~MeshRenderData() {
-
-}
-
+// ============================================== //
 t_error MeshRenderData::loadTexture(const char* filename, uchar texType) {
 	glUseProgram(gl);
 	Log( str( format("Loading texture: %1%") % filename ) );
@@ -241,6 +242,7 @@ t_error MeshRenderData::loadTexture(const char* filename, uchar texType) {
 
 
 }
+// ============================================== //
 
 
 // ============================================== //
@@ -303,14 +305,18 @@ t_error MeshRenderData::construct(Mesh* mesh, bool reconstruction) {
 
 	return NO_ERROR;
 }
+// ============================================== //
 
 
+// ============================================== //
 t_error MeshRenderData::clear() {
 	// clear
 	glDeleteVertexArrays( 1, &vao );
 	glDeleteBuffers( 1, &vbo );
 	return NO_ERROR;
 }
+// ============================================== //
+
 
 // ============================================== //
 // draw mesh

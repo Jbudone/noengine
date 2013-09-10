@@ -56,6 +56,17 @@ const static uchar UI_ELEMENT_WINDOW = 0;
 const static uint UI_EVENT_CLICK = 0;
 const static uint UI_EVENT_HOVER = 1;
 
+
+/*
+=================================================
+
+	UI Element
+
+	All UI elements inherit from this base class. 
+
+=================================================
+*/
+
 struct UIElement {
 	UIElement() { }
 	UIElement(uint x, uint y) : x(x), y(y) { }

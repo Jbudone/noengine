@@ -110,7 +110,6 @@ Cleanup
 	+ Networking component
 	+ ResourceManager component
 	+ Clean logging/comments
-	+ Setup & enforce code standards
 	+ Variable naming (more readable)
 	+ Better shader management
 
@@ -304,23 +303,24 @@ Coding Style
 		memberAbc;
 
 
-		// group of functions
-		// ---------------------
-		// short description of this particular
-		// group of functions
-		// ---------------------
+		/* group of functions
+		 *
+		 * short description of this particular
+		 * group of functions..
+		 ***/
 		func1(int x, int y, int z); // read this pixel
 		func2(int x, int y, int z); // read that pixel
 		func3(int x, int y, int z); // read those pixels
 
-		// ---------------------
-		// thisFunction
-		//
-		// An extended, long explanation of this function
-		// ---------------------
+
+		/* thisFunction
+		 * 
+		 * An extended, long explanation of this function
+		 ***/
+		thisFunction();
 	};
 
-	// ============================================================================
+	// ========================================================
 	// Function blah
 	//
 	//  description (optional)
@@ -341,6 +341,11 @@ Coding Style
 	}
 	// ========================================================
 
+
+	// ========================================================
+	obviousFunction ( param1, param2, ... ) {
+
+	}
 
 	/******************************************************************************/
 								/***** SECTION *****/

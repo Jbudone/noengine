@@ -2,39 +2,53 @@
 
 GLint UIElement::gl = 0;
 
+
+
+// ============================================== //
 UIManager::UIManager(GLint gl, float width, float height) 
 	: gl(gl) {
 	
 	UIElement::gl = gl;
 
-	UIWindow* window = this->addWindow( UIWindow( UIElement( 0, 0 ), 200, 200 ) );
 
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	// Setup a test UI environment
+	UIWindow* window = this->addWindow( UIWindow( UIElement( 0, 0 ), 200, 200 ) );
 	window->construct( width, height );
 
 
-
 	UIWindow* window2 = this->addWindow( UIWindow( UIElement( 250, 300 ), 82, 43 ) );
-
 	window2->construct( width, height );
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 }
+// ============================================== //
 
+
+// ============================================== //
 void UIManager::render() {
 	
 	glUseProgram(gl);
-
 	for ( auto element : elements ) {
 		element->render();
 	}
 	glUseProgram(0);
 }
+// ============================================== //
 
+
+// ============================================== //
 void UIManager::windowResize(float width, float height) {
+	
+	// Reconstruct every element to match the new window size
 	for ( auto element : elements ) {
 		element->createVertexBuffer( width, height );
 	}
 }
+// ============================================== //
 
+
+// ============================================== //
 UIWindow* UIManager::addWindow(const UIWindow& baseWindow, UIElement** addedElement) {
 	UIElement* element = new UIElement();
 	UIWindow*  window  = new UIWindow();
@@ -49,13 +63,17 @@ UIWindow* UIManager::addWindow(const UIWindow& baseWindow, UIElement** addedElem
 
 	window->elementType = UI_ELEMENT_WINDOW;
 	window->element     = (void*)window;
+	window->construct( width, height );
 
 
 	elements.push_back( window );
 	if ( addedElement ) addedElement = &element;
 	return window;
 }
+// ============================================== //
 
+
+// ============================================== //
 UIElement::UIElement(const UIElement& element) {
 	x = element.x;
 	y = element.y;
@@ -68,7 +86,10 @@ UIElement::UIElement(const UIElement& element) {
 	vao = element.vao;
 	vbo = element.vbo;
 }
+// ============================================== //
 
+
+// ============================================== //
 void UIElement::construct(float screenWidth, float screenHeight) {
 
 	this->createVertexBuffer( screenWidth, screenHeight );
@@ -88,7 +109,10 @@ void UIElement::construct(float screenWidth, float screenHeight) {
 	glBindBuffer( GL_ARRAY_BUFFER, 0 );
 	glBindVertexArray( 0 );
 }
+// ============================================== //
 
+
+// ============================================== //
 void UIWindow::createVertexBuffer(float screenWidth, float screenHeight) {
 	vertexBuffer.clear();
 
@@ -101,7 +125,10 @@ void UIWindow::createVertexBuffer(float screenWidth, float screenHeight) {
 	vertexBuffer.push_back( UIVertexBuffer( right, bottom ) );
 	vertexBuffer.push_back( UIVertexBuffer( right, top ) );
 }
+// ============================================== //
 
+
+// ============================================== //
 void UIWindow::render() {
 
 	glUseProgram(gl);
@@ -110,4 +137,5 @@ void UIWindow::render() {
 	glDrawArrays( GL_QUADS, 0, vertexBuffer.size() );
 	glBindVertexArray( 0 );
 }
+// ============================================== //
 

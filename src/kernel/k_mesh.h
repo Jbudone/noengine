@@ -2,6 +2,19 @@
 #define __K_MESH_H__
 
 
+/*
+ * Mesh
+ *
+ * TODO
+ *
+ *  - create instance of mesh
+ *  - handling multiple materials, textures
+ *  - delete vao in construction (in case previously setup)
+ *  - intersection testing to include scale/rotation
+ *
+ ***/
+
+
 #include "util.inc.h"
 #include <math.h>
 
@@ -15,27 +28,6 @@
 #include "libutils/lib_resmgr.h"
 #include "kernel/k_camera.h"
 
-/*
- * Mesh
- *
- * TODO
- *
- *  - create instance of mesh
- *  - handling multiple materials, textures
- *  - delete vao in construction (in case previously setup)
- *
- ***/
-
-
-/*
-=================================================
-
-	Mesh
-
-	your basic mesh
-
-=================================================
-*/
 
 struct VertexBuffer {
 	float v_x, v_y, v_z;
@@ -58,6 +50,18 @@ struct TextureFile {
 };
 
 typedef struct Triple<float,float,float> fTriple;
+
+/*
+=================================================
+
+	MeshRenderData
+
+	Contains all GL rendering data for a Mesh (note this is
+	not necessary for server, hence why we abstracted it out
+	of the Mesh)
+
+=================================================
+*/
 
 class Mesh;
 class MeshRenderData {
@@ -84,6 +88,18 @@ public:
 	bool hasBumpmap = false;
 	Mesh* mesh;
 };
+
+
+/*
+=================================================
+
+	Mesh
+
+	your basic mesh
+
+=================================================
+*/
+
 class Mesh {
 public:
 	Mesh(bool);

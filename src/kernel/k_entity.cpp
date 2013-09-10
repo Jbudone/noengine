@@ -1,15 +1,22 @@
 #include "kernel/k_entity.h"
 
+// ============================================== //
 Entity::Entity() {
 	velocity = glm::vec3(0.0f, 0.0f, 0.0f);
 	page = 0;
 	guid = 0; // this is essentially a null guid
 }
+// ============================================== //
 
+
+// ============================================== //
 Entity::~Entity() {
 	delete mesh;
 }
+// ============================================== //
 
+
+// ============================================== //
 void Entity::updateAABB() {
 	float left=0,
 		  right=0,
@@ -37,7 +44,10 @@ void Entity::updateAABB() {
 	boundingBox.far    = far;
 	
 }
+// ============================================== //
 
+
+// ============================================== //
 bool Entity::collides(Entity* entity) {
 	AABB me;
 		me.left=boundingBox.left+mesh->position.x; me.right=boundingBox.right+mesh->position.x;
@@ -47,8 +57,15 @@ bool Entity::collides(Entity* entity) {
 		you.left=entity->boundingBox.left +entity->mesh->position.x;   you.right= entity->boundingBox.right+  entity->mesh->position.x;
 		you.top= entity->boundingBox.top  +entity->mesh->position.y;   you.bottom=entity->boundingBox.bottom+ entity->mesh->position.y;
 		you.far= entity->boundingBox.far  +entity->mesh->position.z;   you.near=  entity->boundingBox.near+   entity->mesh->position.z;
-	Log(str(format("ME:\n  %1% \n ---------- \n %2% |          | %3% \n ---------- \n %4%")%me.top%me.left%me.right%me.bottom));
-	Log(str(format("YOU:\n  %1% \n ---------- \n %2% |          | %3% \n ---------- \n %4%")%you.top%you.left%you.right%you.bottom));
+	if ( me.right > you.left   && me.left   < you.right &&
+		 me.top   > you.bottom && me.bottom < you.top   &&
+		 me.far   > you.near   && me.near   < you.far ) {
+
+		return true;
+	}
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	// TODO: test above collision works
+	/*
 	if ( boundingBox.right + mesh->position.x > entity->boundingBox.left + entity->mesh->position.x &&
 		 boundingBox.left  + mesh->position.x < entity->boundingBox.right + entity->mesh->position.x &&
 
@@ -60,7 +77,11 @@ bool Entity::collides(Entity* entity) {
 
 		return true;
 	}
+	*/
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 	return false;
 
 }
+// ============================================== //
+

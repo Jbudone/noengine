@@ -12,6 +12,12 @@
  *  - why can't we delete[] pages on destructor?
  *  - improve world pick (pages, sphere, AABB,
  *  	real intersection); dont highlight
+ *  - why can't we use WorldAction& in foreach? infinite
+ *  	loops
+ *  - remove side effects of worldPick (select)
+ *  - pushAction: test if action is legal before pushing?
+ *  	(perhaps not necessary..)
+ *  - why must we use args.copy(args) instead of args(args)?
  *
  ***/
 
@@ -56,14 +62,14 @@ public:
 
 	vector<Entity*> entities;
 
-	// Paging
-	// ---------------------------------------------
-	// The world stores entities in pages in order to manage
-	// entities as efficiently as possible. Pages are
-	// connected in an octree data structure, and all 8
-	// adjacent pages will be loaded and managed along with
-	// the page you currently reside in
-	// ---------------------------------------------
+	/* Paging
+	 *
+	 * The world stores entities in pages in order to manage
+	 * entities as efficiently as possible. Pages are
+	 * connected in an octree data structure, and all 8
+	 * adjacent pages will be loaded and managed along with
+	 * the page you currently reside in
+	 ***/
 	int npages_x, npages_y;
 	Page* pages[(int)(WRLD_MAX_HEIGHT/WRLD_PAGE_HEIGHT)][(int)(WRLD_MAX_WIDTH/WRLD_PAGE_WIDTH)];
 	Page* page;
@@ -82,6 +88,20 @@ public:
 
 	bool renderable;
 };
+
+
+/*
+=================================================
+
+	Page
+
+	A page is a portion of the world (zone) linked together
+	in an octree with other pages; all of which contain the
+	entities within them. This helps for more efficient
+	rendering and receiving/handling data from the server
+
+=================================================
+*/
 
 struct Page {
 	Page() {
@@ -166,6 +186,23 @@ private:
 	WorldActionResponse* apply_create_light(World* world, bool peekOutcome);
 	WorldActionResponse* apply_push_entity(World* world, bool peekOutcome);
 };
+
+
+/*
+=================================================
+
+	WorldActionResponse
+
+	When a WorldAction object is applied there's a
+	possibility for failure or even a necessary
+	modification. For example if a user is trying to move
+	into the wall at a 45 degree angle, he cannot pass
+	through the wall but he can slide along the wall
+	horizontally. This revised WorldAction is stored in the
+	WorldActionResponse and returned after the apply
+
+=================================================
+*/
 
 struct WorldActionResponse {
 	WorldActionResponse();

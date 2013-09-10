@@ -6,6 +6,8 @@ World::World(bool renderable)
 	shadermgr = 0;
 }
 
+// ============================================== //
+// Load the world along with all of its properties, entities, textures, etc.
 void World::loadWorld() {
 
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -114,7 +116,10 @@ void World::loadWorld() {
 	page = 0;
 	friction = 0.5f;
 }
+// ============================================== //
 
+
+// ============================================== //
 World::~World() {
 	if (shadermgr) delete shadermgr;
 	
@@ -130,10 +135,12 @@ World::~World() {
 	}
 	entities.clear();
 }
+// ============================================== //
 
+
+// ============================================== //
 void World::render() {
 	if ( renderable ) {
-
 		for ( auto renderer : shadermgr->renderers ) {
 			glUseProgram( renderer->program->programid );
 			for ( auto entity : renderer->entities ) {
@@ -142,7 +149,12 @@ void World::render() {
 		}
 	}
 }
+// ============================================== //
 
+
+// ============================================== //
+// Cast a ray outwards from the camera (in the given x/y window coords)
+// Returns the nearest Entity hit
 Entity* World::worldPick(float xw, float yw) {
 
 	glm::vec3 rayPos = camera.position;
@@ -156,8 +168,7 @@ Entity* World::worldPick(float xw, float yw) {
 	glm::mat4 view        = glm::toMat4(quat);
 
 
-
-
+	// check for the nearest Entity hit
 	bool pickedSomething = false;
 	Entity* newSelection = NULL;
 	float nearestHit = 0.0f;
@@ -194,6 +205,8 @@ Entity* World::worldPick(float xw, float yw) {
 
 	if ( selection == newSelection ) return selection;
 
+
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	if ( selection ) {
 		// unselect entity
 		bool done = false;
@@ -248,13 +261,18 @@ Entity* World::worldPick(float xw, float yw) {
 		}
 
 	}
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
 	return newSelection;
 }
+// ============================================== //
 
+
+// ============================================== //
 void World::step(float ms, WorldActionResponses* responses) {
-	// apply actions
+
+	// Apply all awaiting actions (received from input or network)
 	actions.swap();
 	// TODO: using WorldAction& pushes this into an infinite loop, loading the same action over and over again ??
 	for ( WorldAction action : (**actions.inactive) ) {
@@ -267,15 +285,16 @@ void World::step(float ms, WorldActionResponses* responses) {
 	(*actions.inactive)->clear();
 
 
+	// Step through each Entity (eg. velocity)
 	for ( auto entity : entities ) {
 		if ( fabs(entity->velocity.x) + fabs(entity->velocity.y) + fabs(entity->velocity.z) < 1.0f ) continue;
 		Log(str(format("Velocity (%1%)")%entity->guid));
 		entity->mesh->position += ms / 1000 * entity->velocity;
 		entity->velocity *= friction;
 		updateEntityPage(entity);
-					Log(str(format("NEW POSITION: <%1%,%2%,%3%>")%entity->mesh->position.x%entity->mesh->position.y%entity->mesh->position.z));
+		Log(str(format("NEW POSITION: <%1%,%2%,%3%>")%entity->mesh->position.x%entity->mesh->position.y%entity->mesh->position.z));
 
-		// TODO: collision detection!
+		// collision detection!
 		bool collided = false;
 		for ( auto collidable : entities ) {
 			if ( collidable == entity ) continue;
@@ -297,12 +316,18 @@ void World::step(float ms, WorldActionResponses* responses) {
 		if ( collided ) entity->velocity = glm::vec3( 0.0f, 0.0f, 0.0f );
 	}
 }
+// ============================================== //
 
+
+// ============================================== //
 void World::pushAction(int action, Bfield128_t args) {
 	// TODO: test if action is legal
 	(*actions.active)->push_back( WorldAction(action, args) );
 }
+// ============================================== //
 
+
+// ============================================== //
 void World::buildPages() {
 	npages_y = WRLD_MAX_HEIGHT/WRLD_PAGE_HEIGHT;
 	npages_x = WRLD_MAX_WIDTH/WRLD_PAGE_WIDTH;
@@ -327,7 +352,10 @@ void World::buildPages() {
 	}
 	page = fetchPage(camera.position.z, camera.position.x);
 }
+// ============================================== //
 
+
+// ============================================== //
 void World::buildPage(Page* page) {
 	// set the proper neighbouring pages
 	glm::vec2 center = page->center;
@@ -376,45 +404,68 @@ void World::buildPage(Page* page) {
 	}
 
 }
+// ============================================== //
 
+
+// ============================================== //
 int World::fetchPageIndexX(int x) {
 	int index = x/WRLD_PAGE_WIDTH + npages_x/2;
 	if ( index < 0 ) index = 0;
 	return ( index >= npages_x-1 ? npages_x : index );
 }
+// ============================================== //
 
 
+// ============================================== //
 int World::fetchPageIndexY(int y) {
 	int index = y/WRLD_PAGE_HEIGHT + npages_y/2;
 	if ( index < 0 ) index = 0;
 	return ( index >= npages_y-1 ? npages_y : index );
 }
+// ============================================== //
 
+
+// ============================================== //
 Page* World::fetchPage(int y, int x) {
 	return pages[fetchPageIndexY(y)][fetchPageIndexX(x)];
 }
+// ============================================== //
 
+
+// ============================================== //
 Page* World::fetchPage(Entity* entity) {
 	return fetchPage(entity->mesh->position.z, entity->mesh->position.x);
 }
+// ============================================== //
 
+
+// ============================================== //
 void World::updateEntityPage(Entity* entity) {
 	if ( fetchPage(entity) != entity->page ) {
 		if ( entity->page ) entity->page->removeEntity(entity);
 		fetchPage(entity)->addEntity(entity);
 	}
 }
+// ============================================== //
 
+
+// ============================================== //
 bool World::inVisualSphere(Entity* entity) {
 	return ( fabs(entity->mesh->position.y ) - fabs(camera.position.y) <= CAM_FAR &&
 			 fabs(entity->mesh->position.x ) - fabs(camera.position.x) <= CAM_FAR );
 }
+// ============================================== //
 
+
+// ============================================== //
 void Page::addEntity(Entity* entity) {
 	entities.push_back(entity);
 	entity->page = this;
 }
+// ============================================== //
 
+
+// ============================================== //
 void Page::removeEntity(Entity* entity) {
 	int i=0;
 	entity->page = 0;
@@ -426,6 +477,8 @@ void Page::removeEntity(Entity* entity) {
 		i++;
 	}
 }
+// ============================================== //
+
 
 WorldActionResponse::WorldActionResponse() : worldAction(0), succeeded(false) { }
 WorldActionResponse::WorldActionResponse(const WorldAction& worldAction, bool succeeded) : succeeded(succeeded) {
@@ -445,18 +498,19 @@ WorldActionResponse::~WorldActionResponse() {
 }
 
 
-WorldAction::WorldAction(uint action, const Bfield128_t& args, int page, int initiator, uint id) : action(action), page(page), initiator(initiator), id(id) {
-	this->args.copy(args);
-	Log("WorldAction()");
-} 
-WorldAction::WorldAction(const WorldAction &rhs) { Log("WorldAction(const WorldAction&); 1"); this->action = rhs.action;
+WorldAction::WorldAction(uint action, const Bfield128_t& args, int page, int initiator, uint id) : action(action), page(page), initiator(initiator), id(id) { this->args.copy(args); } 
+WorldAction::WorldAction(const WorldAction &rhs) { this->action = rhs.action;
 	this->args = rhs.args;
-	this->page = rhs.page; this->initiator = rhs.initiator; this->id = rhs.id; Log("WorldAction(const WorldAction&);"); }
-WorldAction& WorldAction::operator=(const WorldAction &rhs) { Log("WorldAction::operator=() 1"); this->action = rhs.action;
+	this->page = rhs.page; this->initiator = rhs.initiator; this->id = rhs.id; }
+WorldAction& WorldAction::operator=(const WorldAction &rhs) { this->action = rhs.action;
 	this->args = rhs.args;
-	this->page = rhs.page; this->initiator = rhs.initiator; this->id = rhs.id; Log("WorldAction::operator=()"); return *this; }
-WorldAction::~WorldAction() { Log("deleting world action.."); }
+	this->page = rhs.page; this->initiator = rhs.initiator; this->id = rhs.id;  return *this; }
+WorldAction::~WorldAction() {  }
 
+
+
+// ============================================== //
+// Drop a mesh entity into the world
 WorldAction WorldAction::serialize_create_mesh(unsigned int mesh, unsigned int guid, glm::vec3 position) {
 	uint action; Bfield128_t args;
 	action = (ACTION_CREATE);
@@ -466,14 +520,6 @@ WorldAction WorldAction::serialize_create_mesh(unsigned int mesh, unsigned int g
 	args.set<uint>(mesh, offset); offset += sizeof(mesh);
 	args.set<uint>(guid, offset); offset += sizeof(guid);
 
-	// position in world coordinates needs to be scaled into normalized coordinates
-	// glm::vec3<int> scale;
-	// scale.x = (fabs(position.x) > 1.0f ? (int)fabs(position.x)+1 : 1);
-	// scale.y = (fabs(position.y) > 1.0f ? (int)fabs(position.y)+1 : 1);
-	// scale.z = (fabs(position.z) > 1.0f ? (int)fabs(position.z)+1 : 1);
-	// args += quantizeFloat( (position.x / scale.x) ) << (sizeof(int) * 5);
-	// args += quantizeFloat( (position.y / scale.y) ) << (sizeof(int) * 4);
-	// args += quantizeFloat( (position.z / scale.z) ) << (sizeof(int) * 3);
 	glm::ivec3 posOffset;
 	posOffset.x = (int)position.x;
 	posOffset.y = (int)position.y;
@@ -487,13 +533,23 @@ WorldAction WorldAction::serialize_create_mesh(unsigned int mesh, unsigned int g
 	Log("Serializing WorldAction..");
 	return WorldAction( action, args );
 }
+// ============================================== //
 
+
+
+
+// ============================================== //
+// Drop a light entity into the world
 WorldAction WorldAction::serialize_create_light(unsigned int guid, glm::vec3 color, glm::vec3 position) {
 	// TODO
 	Bfield128_t args;
 	return WorldAction( 0, args );
 }
+// ============================================== //
 
+
+// ============================================== //
+// Add some velocity into an entity
 WorldAction WorldAction::serialize_push_entity(unsigned int guid, glm::vec3 direction, uchar speed) {
 	uint action; Bfield128_t args;
 	action = (ACTION_PUSH);
@@ -509,9 +565,11 @@ WorldAction WorldAction::serialize_push_entity(unsigned int guid, glm::vec3 dire
 	return WorldAction( action, args );
 
 }
+// ============================================== //
 
+
+// ============================================== //
 WorldActionResponse* WorldAction::apply(World* world, bool peekOutcome) {
-	// TODO
 	switch ( action ) {
 		case ACTION_CREATE:
 			switch ( args.fetch<uchar>(0) ) {
@@ -527,9 +585,11 @@ WorldActionResponse* WorldAction::apply(World* world, bool peekOutcome) {
 	}
 	return new WorldActionResponse();
 }
+// ============================================== //
 
+
+// ============================================== //
 WorldActionResponse* WorldAction::apply_create_mesh(World* world, bool peekOutcome) {
-	// TODO
 	uint mesh, guid;
 	glm::ivec3 posOffset;
 	glm::vec3 position;
@@ -553,6 +613,8 @@ WorldActionResponse* WorldAction::apply_create_mesh(World* world, bool peekOutco
 	if ( world->renderable ) {
 		renderer = world->shadermgr->renderers.front();
 	}
+
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 				Entity* drop = ResourceManager::LoadMesh( renderer , "data/cube.obj" );
 				drop->guid = guid;
 				Mesh* dropMesh = drop->mesh;
@@ -561,14 +623,21 @@ WorldActionResponse* WorldAction::apply_create_mesh(World* world, bool peekOutco
 				dropMesh->position.x *= -1;
 				dropMesh->position.y *= -1;
 				world->updateEntityPage(drop);
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 	return new WorldActionResponse( WorldAction( action, args, page, initiator, id ), true );
 }
+// ============================================== //
 
+
+// ============================================== //
 WorldActionResponse* WorldAction::apply_create_light(World* world, bool peekOutcome) {
 	return new WorldActionResponse( WorldAction( action, args, page, initiator, id ), true );
 }
+// ============================================== //
 
+
+// ============================================== //
 WorldActionResponse* WorldAction::apply_push_entity(World* world, bool peekOutcome) {
 
 	uint guid;
@@ -598,4 +667,6 @@ WorldActionResponse* WorldAction::apply_push_entity(World* world, bool peekOutco
 
 	return new WorldActionResponse( WorldAction( action, args, page, initiator, id ), true );
 }
+// ============================================== //
+
 
