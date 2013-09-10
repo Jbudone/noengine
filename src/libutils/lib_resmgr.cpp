@@ -246,12 +246,12 @@ void ResourceManager::shutdown() {
 }
 
 
-Texture::Texture(const char* filename, const uchar* imagedata, int width, int height) : width(width), height(height) {
+Texture::Texture(const char* filename, const uchar* imageData, int width, int height) : width(width), height(height) {
 	this->filename = new char[strlen(filename)+1];
 	strcpy( this->filename, filename );
 	unsigned int size = getSize();
-	this->imagedata = new uchar[size+1];
-	strcpy( (char*)this->imagedata, (const char*)imagedata );
+	this->imageData = new uchar[size+1];
+	memcpy( this->imageData, imageData, size );
 }
 Texture::Texture(const Texture &rhs) {
 	this->width = rhs.width;
@@ -259,8 +259,8 @@ Texture::Texture(const Texture &rhs) {
 	this->filename = new char[strlen(rhs.filename)+1];
 	strcpy( this->filename, rhs.filename );
 	unsigned int size = getSize();
-	this->imagedata = new uchar[size+1];
-	strcpy( (char*)this->imagedata, (const char*)rhs.imagedata );
+	this->imageData = new uchar[size+1];
+	memcpy( this->imageData, rhs.imageData, size );
 }
 Texture& Texture::operator=(const Texture &rhs) {
 	this->width = rhs.width;
@@ -268,16 +268,40 @@ Texture& Texture::operator=(const Texture &rhs) {
 	this->filename = new char[strlen(rhs.filename)+1];
 	strcpy( this->filename, rhs.filename );
 	unsigned int size = getSize();
-	this->imagedata = new uchar[size+1];
-	strcpy( (char*)this->imagedata, (const char*)rhs.imagedata );
+	this->imageData = new uchar[size+1];
+	memcpy( this->imageData, rhs.imageData, size );
 
 	return *this;
 }
 
 int Texture::getSize() {
-	return width * height * 8 * 4 * 2;
+	return width * height * 3 * 1;
 }
 Texture::~Texture() {
 	delete filename;
-	SOIL_free_image_data( this->imagedata );
+	SOIL_free_image_data( this->imageData );
+}
+
+Texture* Texture::loadTexture(const char* filename) {
+
+	// load texture image
+	// check if texture has already been loaded
+	Texture* texture = 0;
+	for ( Texture& _texture : ResourceManager::textures ) {
+		if ( strcmp(_texture.filename, filename) == 0 ) {
+			texture = &_texture;
+			break;
+		}
+	}
+	if ( texture == 0 ) {
+		// create texture
+		int width, height;
+		unsigned char* imageData = SOIL_load_image( filename, &width, &height, 0, SOIL_LOAD_RGB );
+		texture = new Texture(filename, imageData, width, height);
+		SOIL_free_image_data( imageData );
+
+		ResourceManager::textures.push_back( *texture );
+	}
+
+	return texture;
 }

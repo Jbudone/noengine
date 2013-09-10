@@ -110,9 +110,9 @@ void UIElement::construct(float screenWidth, float screenHeight) {
 	glVertexAttribPointer( glVertex, 2, GL_FLOAT, GL_FALSE, sizeof(UIVertexBuffer), (void*)0 );
 	glVertexAttribPointer( glTexcoord, 2, GL_FLOAT, GL_FALSE, sizeof(UIVertexBuffer), (void*)( sizeof(float) * 2 ) );
 
-	// setup textures
-	int imgWidth, imgHeight;
-	unsigned char* imageData = SOIL_load_image( "data/textures/brick1.jpg", &imgWidth, &imgHeight, 0, SOIL_LOAD_RGB );
+
+	// load texture image
+	Texture* texture = Texture::loadTexture( "data/textures/brick1.jpg" );
 
 	// copy file to opengl
 	GLuint tex;
@@ -120,8 +120,8 @@ void UIElement::construct(float screenWidth, float screenHeight) {
 	glActiveTexture( GL_TEXTURE2 );
 	glEnable( GL_TEXTURE_2D );
 	glBindTexture( GL_TEXTURE_2D, tex );
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, imgWidth, imgHeight, 0,
-			GL_RGB, GL_UNSIGNED_BYTE, imageData );
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texture->width, texture->height, 0,
+			GL_RGB, GL_UNSIGNED_BYTE, texture->imageData );
 	glUniform1i( glGetUniformLocation( gl, "Tex2" ), 2 );
 
 	// mipmapping
@@ -129,7 +129,6 @@ void UIElement::construct(float screenWidth, float screenHeight) {
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
 	glGenerateMipmap( GL_TEXTURE_2D );
 
-	SOIL_free_image_data( imageData );
 	glActiveTexture( 0 );
 	glBindBuffer( GL_ARRAY_BUFFER, 0 );
 	glBindVertexArray( 0 );

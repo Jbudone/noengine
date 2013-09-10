@@ -191,35 +191,15 @@ t_error MeshRenderData::loadTexture(const char* filename, uchar texType) {
 	glUseProgram(gl);
 	Log( str( format("Loading texture: %1%") % filename ) );
 
-	/*
 	// load texture image
-	// check if texture has already been loaded
-	Texture* texture = 0;
-	for ( Texture& _texture : ResourceManager::textures ) {
-		if ( strcmp(_texture.filename, filename) == 0 ) {
-			texture = &_texture;
-			break;
-		}
-	}
-	if ( texture == 0 ) {
-		// create texture
-		int width, height;
-		unsigned char* imageData = SOIL_load_image( filename, &width, &height, 0, SOIL_LOAD_RGB );
-		texture = new Texture(filename, imageData, width, height);
-
-		ResourceManager::textures.push_back( *texture );
-	}
-	*/
-	int width, height;
-	unsigned char* imageData = SOIL_load_image( filename, &width, &height, 0, SOIL_LOAD_RGB );
-	// texture = new Texture(filename, imageData, width, height);
+	Texture* texture = Texture::loadTexture( filename );
 
 	// copy file to opengl
 	glActiveTexture( GL_TEXTURE0 + texType );
 	glEnable( GL_TEXTURE_2D );
 	glBindTexture( GL_TEXTURE_2D, textures[texType] );
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0,
-			GL_RGB, GL_UNSIGNED_BYTE, imageData );
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texture->width, texture->height, 0,
+			GL_RGB, GL_UNSIGNED_BYTE, texture->imageData );
 	if ( texType == MESH_RENDER_TEXTURE ) {
 		glUniform1i( glGetUniformLocation( gl, "Tex" ), texType );
 		hasTexture = true;
@@ -235,7 +215,6 @@ t_error MeshRenderData::loadTexture(const char* filename, uchar texType) {
 
 	// cleanup
 	glActiveTexture(0);
-	// SOIL_free_image_data( imageData );
 	Log( str( format("Loaded texture %1%") % filename ) );
 
 	return NO_ERROR;
