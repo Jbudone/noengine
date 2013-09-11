@@ -81,7 +81,7 @@ namespace ResourceManager {
 =================================================
 */
 struct Texture {
-	Texture(const char* filename, const uchar* imageData, int width, int height);
+	Texture(const char* filename, const uchar* imageData, int width, int height, uint description = 0);
 	Texture(const Texture &rhs);
 	Texture& operator=(const Texture &rhs);
 	~Texture();
@@ -90,7 +90,9 @@ struct Texture {
 	uchar *imageData;
 	int width, height;
 
-	static Texture* loadTexture(const char* filename);
+	uint description;
+	static const uint TEX_CHAN_ALPHA = 1 << 0;
+	static Texture* loadTexture(const char* filename, uint description = 0);
 };
 
 inline int tokenToInt(tokenizer<boost::char_separator<char>>::iterator token) { return atoi((*token).c_str()); }

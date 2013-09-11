@@ -95,7 +95,6 @@ void UIElement::construct(float screenWidth, float screenHeight) {
 	this->createVertexBuffer( screenWidth, screenHeight );
 
 	glUseProgram(gl);
-	Log(str(format( "Using shader (%1%) for UI element" ) % (gl) ));
 	glGenVertexArrays( 1, &vao );
 	glBindVertexArray( vao );
 
@@ -112,7 +111,11 @@ void UIElement::construct(float screenWidth, float screenHeight) {
 
 
 	// load texture image
-	Texture* texture = Texture::loadTexture( "data/textures/brick1.jpg" );
+	Texture* texture = Texture::loadTexture( "data/textures/windowtex.png", Texture::TEX_CHAN_ALPHA );
+	uint borderLeft   = 100,
+		 borderRight  = 90,
+		 borderTop    = 90,
+		 borderBottom = 100;
 
 	// copy file to opengl
 	GLuint tex;
@@ -120,9 +123,12 @@ void UIElement::construct(float screenWidth, float screenHeight) {
 	glActiveTexture( GL_TEXTURE2 );
 	glEnable( GL_TEXTURE_2D );
 	glBindTexture( GL_TEXTURE_2D, tex );
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texture->width, texture->height, 0,
-			GL_RGB, GL_UNSIGNED_BYTE, texture->imageData );
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture->width, texture->height, 0,
+			GL_RGBA, GL_UNSIGNED_BYTE, texture->imageData );
 	glUniform1i( glGetUniformLocation( gl, "Tex2" ), 2 );
+	glUniform4fv( glGetUniformLocation( gl, "borderWidths" ), 1, glm::value_ptr(glm::vec4(borderLeft, borderRight, borderTop, borderBottom)) );
+	glUniform2fv( glGetUniformLocation( gl, "texSize" ), 1, glm::value_ptr(glm::vec2(texture->width, texture->height)) );
+	glUniform2fv( glGetUniformLocation( gl, "winSize" ), 1, glm::value_ptr(glm::vec2(screenWidth, screenHeight)) );
 
 	// mipmapping
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );

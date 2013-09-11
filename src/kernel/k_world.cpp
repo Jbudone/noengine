@@ -35,7 +35,6 @@ void World::loadWorld() {
 		program->shaders.push_back( shader );
 		shadermgr->linkProgram( program );
 		renderer = shadermgr->createRenderer( program );
-		Log(str(format( "Created shader (shade): %1%" ) % (ResourceManager::world->shadermgr->renderers.back()->program->programid) ));
 		glUseProgram(0);
 
 
@@ -56,7 +55,6 @@ void World::loadWorld() {
 		program2->shaders.push_back( shader2 );
 		shadermgr->linkProgram( program2 );
 		RenderGroup* renderer2 = shadermgr->createRenderer( program2 );
-		Log(str(format( "Created shader (highlight): %1%" ) % (ResourceManager::world->shadermgr->renderers.back()->program->programid) ));
 		glUseProgram(0);
 
 
@@ -75,7 +73,6 @@ void World::loadWorld() {
 		program3->shaders.push_back( shader3 );
 		shadermgr->linkProgram( program3 );
 		RenderGroup* renderer3 = shadermgr->createRenderer( program3 );
-		Log(str(format( "Created shader (UI): %1%" ) % (ResourceManager::world->shadermgr->renderers.back()->program->programid) ));
 		glUseProgram(0);
 
 	}
@@ -112,6 +109,8 @@ void World::loadWorld() {
 		glDepthMask( GL_TRUE );
 		glDepthFunc( GL_LEQUAL );
 		glDepthRange( NGL_NEAR, NGL_FAR );
+		glEnable ( GL_BLEND );
+		glBlendFunc ( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 	}
 
 

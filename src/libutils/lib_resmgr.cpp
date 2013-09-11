@@ -246,7 +246,7 @@ void ResourceManager::shutdown() {
 }
 
 
-Texture::Texture(const char* filename, const uchar* imageData, int width, int height) : width(width), height(height) {
+Texture::Texture(const char* filename, const uchar* imageData, int width, int height, uint description) : width(width), height(height), description(description) {
 	this->filename = new char[strlen(filename)+1];
 	strcpy( this->filename, filename );
 	unsigned int size = getSize();
@@ -254,6 +254,7 @@ Texture::Texture(const char* filename, const uchar* imageData, int width, int he
 	memcpy( this->imageData, imageData, size );
 }
 Texture::Texture(const Texture &rhs) {
+	this->description = rhs.description;
 	this->width = rhs.width;
 	this->height = rhs.height;
 	this->filename = new char[strlen(rhs.filename)+1];
@@ -263,6 +264,7 @@ Texture::Texture(const Texture &rhs) {
 	memcpy( this->imageData, rhs.imageData, size );
 }
 Texture& Texture::operator=(const Texture &rhs) {
+	this->description = rhs.description;
 	this->width = rhs.width;
 	this->height = rhs.height;
 	this->filename = new char[strlen(rhs.filename)+1];
@@ -275,20 +277,22 @@ Texture& Texture::operator=(const Texture &rhs) {
 }
 
 int Texture::getSize() {
-	return width * height * 3 * 1;
+	uchar channels = 3; // RGB
+	if ( description & TEX_CHAN_ALPHA ) channels++; // Alpha channel
+	return width * height * channels * 1;
 }
 Texture::~Texture() {
 	delete filename;
 	SOIL_free_image_data( this->imageData );
 }
 
-Texture* Texture::loadTexture(const char* filename) {
+Texture* Texture::loadTexture(const char* filename, uint description) {
 
 	// load texture image
 	// check if texture has already been loaded
 	Texture* texture = 0;
 	for ( Texture& _texture : ResourceManager::textures ) {
-		if ( strcmp(_texture.filename, filename) == 0 ) {
+		if ( strcmp( _texture.filename, filename ) == 0 ) {
 			texture = &_texture;
 			break;
 		}
@@ -296,8 +300,10 @@ Texture* Texture::loadTexture(const char* filename) {
 	if ( texture == 0 ) {
 		// create texture
 		int width, height;
-		unsigned char* imageData = SOIL_load_image( filename, &width, &height, 0, SOIL_LOAD_RGB );
-		texture = new Texture(filename, imageData, width, height);
+		int channels = SOIL_LOAD_RGB;
+		if ( description & TEX_CHAN_ALPHA ) channels++;
+		unsigned char* imageData = SOIL_load_image( filename, &width, &height, 0, channels );
+		texture = new Texture( filename, imageData, width, height, description );
 		SOIL_free_image_data( imageData );
 
 		ResourceManager::textures.push_back( *texture );
