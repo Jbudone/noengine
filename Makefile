@@ -4,8 +4,8 @@ SOURCE_SERVER = server.o k_net.server.o $(SOURCE_COMMON)
 SOURCE_CLIENT = client.o k_net.client.o $(SOURCE_COMMON)
 NEW_WARNINGS = -Wc++11-compat -Wmaybe-uninitialized 
 NOWARNINGS = -Waddress   -Warray-bounds  -Wchar-subscripts  -Wenum-compare -Wcomment  -Wformat   -Wnonnull  -Wparentheses  -Wreturn-type  -Wsequence-point  -Wstrict-aliasing  -Wstrict-overflow=1  -Wswitch  -Wtrigraphs  -Wuninitialized  -Wunknown-pragmas  -Wunused-label     -Wvolatile-register-var
-LIBS = -L/usr/local/lib/ -L/usr/local/lib64/ -lGLEW -lGLU -lGL -lglut -lcurses
-INCLUDES = -Isrc/ -I/usr/include/
+LIBS = -L/usr/local/lib/ -L/usr/local/lib64/ -lGLEW -lGLU -lGL -lglut -lcurses `freetype-config --libs`
+INCLUDES = -Isrc/ -Isrc/extern -I/usr/include/
 OPTIONS = -g -O0 -std=c++0x $(INCLUDES) $(NOWARNINGS)
 
 COMPILE    = ~/.vim/bin/cc_args.py g++

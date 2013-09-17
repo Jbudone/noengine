@@ -75,6 +75,23 @@ void World::loadWorld() {
 		RenderGroup* renderer3 = shadermgr->createRenderer( program3 );
 		glUseProgram(0);
 
+
+
+		// load UI Text shader
+		ShaderProgram *program4 = shadermgr->createProgram();
+		glUseProgram( program4->programid );
+		ShaderSet *shader4 = new ShaderSet();
+		if ( shadermgr->loadShader( program4, "data/shaders/ui.text.vert", GL_VERTEX_SHADER, SHD_NONE, &shader4 ) & ERROR ) { throw exception(); }
+		Log( "Loaded UI vert shader" );
+		if ( shadermgr->loadShader( program4, "data/shaders/ui.text.frag", GL_FRAGMENT_SHADER, 0, &shader4 ) & ERROR ) { throw exception(); }
+		Log( "Loaded UI frag shader" );
+		shadermgr->addShaderParameter( shader4, "coord", SHDIN_TEXCOORD );
+
+		program4->shaders.push_back( shader4 );
+		shadermgr->linkProgram( program4 );
+		RenderGroup* renderer4 = shadermgr->createRenderer( program4 );
+		glUseProgram(0);
+
 	}
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 

@@ -192,7 +192,10 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 
-	ui = new UIManager( ResourceManager::world->shadermgr->renderers.back()->program->programid, width, height );
+	ui = new UIManager( 
+			ResourceManager::world->shadermgr->renderers.at(2)->program->programid,
+			ResourceManager::world->shadermgr->renderers.back()->program->programid,
+			width, height );
 
 #ifndef NO_INPUT
 	Input::startup();
@@ -341,7 +344,7 @@ void check_gl_error() {
 
 void display() {
 
-	glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
+	glClearColor( 1.0f, 0.0f, 1.0f, 0.0f );
 	glClearDepth( 1.0f );
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 	ResourceManager::world->render();
