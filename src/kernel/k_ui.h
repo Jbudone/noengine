@@ -10,10 +10,13 @@
  *  - read UI from declarative template
  *  - write UI changes to file
  *  - link with shared textures in resources
- *  - textures & borders on windows
- *  - render text
- *  - load/store textures for multiple faces/sizes/styles;
- *  	store texture bindings along with shared textures
+ *  - scalable option for borders
+ *  - box model layout
+ *  - text template (normal <b>BOLD</b> <2em>BIG</2em>)
+ *  - font styles
+ *  - font kerning
+ *  - put font faces/sizes in configs
+ *  - BUG: setting font_num_sizes to 4 breaks
  *
  ***/
 
@@ -53,16 +56,16 @@ struct UIWindow;
 struct UIText;
 class UIManager {
 	vector<UIElement*> elements;
-	float width, height;
 	GLint gl;
 public:
+	float width, height;
 
 	UIManager(GLint gl, GLint gl_text, float width, float height);
 
 	UIWindow* addWindow(const UIWindow& baseWindow, UIElement** addedElement = 0);
 
 	void render();
-	void windowResize(float width, float height);
+	void windowResize();
 };
 
 const static uchar UI_ELEMENT_WINDOW = 0;
@@ -89,14 +92,15 @@ struct UIElement {
 	uint x, y; uchar z; // element top-right position
 	bool visible;
 	UIElement* parent = 0;
+	UIManager* manager = 0;
 
 	uint evtmask;      // which events to look out for
 	uchar elementType; // what type of element is this
 	void* element;     // pointer to self (the true element of this)
 
-	inline virtual void construct(float screenWidth, float screenHeight) { }
+	inline virtual void construct() { }
 	inline virtual void render() { }
-	inline virtual void createVertexBuffer(float screenWidth, float screenHeight) { }
+	inline virtual void createVertexBuffer() { }
 
 	static GLint gl;
 	static GLint gl_text;
@@ -110,8 +114,8 @@ struct UIWindow : UIElement {
 	uint width, height;
 
 	vector<UIVertexBuffer> vertexBuffer;
-	void construct(float screenWidth, float screenHeight);
-	void createVertexBuffer(float screenWidth, float screenHeight);
+	void construct();
+	void createVertexBuffer();
 	void render();
 
 	void addText(const char* text);
@@ -128,13 +132,16 @@ struct UIWindow : UIElement {
  ***/
 #define ASCII_HIGH_CODE 128
 #define ASCII_LOW_CODE 32
+
+#define FONT_NUM_FACES 2
+#define FONT_NUM_SIZES 3
 struct UIText : UIElement {
 
 	UIText(const char* text);
 	~UIText();
 
-	void construct(float screenWidth, float screenHeight);
-	void createVertexBuffer(float screenWidth, float screenHeight);
+	void construct();
+	void createVertexBuffer();
 	void render();
 
 	/* UI Word
@@ -148,8 +155,8 @@ struct UIText : UIElement {
 	 ***/
 	struct UIWord {
 
-		UIWord(const char* text);
-		UIWord(const char* text, ushort length);
+		UIWord(const char* text, uchar fontface = 0);
+		UIWord(const char* text, ushort length, uchar fontface = 0);
 		~UIWord();
 
 
@@ -159,7 +166,7 @@ struct UIText : UIElement {
 		 ***/
 		struct UIGlyph {
 
-			UIGlyph(char charcode);
+			UIGlyph(char charcode, uchar fontface);
 
 
 			/* Character Info
@@ -170,7 +177,6 @@ struct UIText : UIElement {
 			 ***/
 			struct CharacterInfo {
 				int    advance_x, // TODO: how far to advance to next char ?
-					   advance_y,
 
 					   texWidth,  // width/height of glyph in texture
 					   texHeight;
@@ -178,16 +184,19 @@ struct UIText : UIElement {
 				float  texLeft,   // offset of glyph in texture (relative to cursor
 					   texTop,
 
-					   tx,        // offset of glyph in texture (tex coords)
+					   tx,        // x offset of glyph in texture (tex coords)
+					   tt,        // y offset of glyph in texture (tex coords)
 					   tw,        // width of character (scaled to atlas coords)
 					   th;        // height of character (scaled to atlas coords)
 			};
 
-			static CharacterInfo characters[ASCII_HIGH_CODE - ASCII_LOW_CODE];
+			static CharacterInfo characters[FONT_NUM_FACES + FONT_NUM_SIZES][ASCII_HIGH_CODE - ASCII_LOW_CODE];
 			static void initFonts();
+			static std::pair<uint,uint> getFontBoundaries(FT_Face face);
+			static void setupFont(FT_Face face, uchar glyphFontIndex, uint& yOffset);
 			static GLuint atlasTex;
-			static int atlasWidth;
-			static int atlasHeight;
+			static uint atlasWidth;
+			static uint atlasHeight;
 
 			char charcode;
 			CharacterInfo* glyph;
@@ -196,6 +205,7 @@ struct UIText : UIElement {
 		UIGlyph** glyphs;
 		ushort length;
 		ushort width;
+		uchar fontface; // index of font face (& size, style)
 	};
 
 

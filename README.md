@@ -12,6 +12,7 @@ Requirements
 
 	+ freeglut3-dev
 	+ boost 1.5.3+
+	+ freetype 2.5.0+
 
 
 

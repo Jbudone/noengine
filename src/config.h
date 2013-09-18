@@ -39,3 +39,11 @@
 #define KCYN  "\x1B[36m"
 #define KWHT  "\x1B[37m"
 
+// font rendering
+// #ifndef __CFG_FONT_RENDERING__
+// #define __CFG_FONT_RENDERING__
+// #define FONT_FACES { "data/fonts/freefont/FreeSerif.ttf", "data/fonts/droid/DroidSans.ttf" }
+// #define FONT_SIZES { 12, 24, 18, 24 }
+// #define FONT_NUM_FACES 2
+// #define FONT_NUM_SIZES 4
+// #endif
