@@ -192,10 +192,12 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 
+	Log( ".1" );
 	ui = new UIManager( 
 			ResourceManager::world->shadermgr->renderers.at(2)->program->programid,
 			ResourceManager::world->shadermgr->renderers.back()->program->programid,
 			width, height );
+	Log( ".2" );
 
 #ifndef NO_INPUT
 	Input::startup();

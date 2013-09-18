@@ -16,7 +16,6 @@
  *  - font styles
  *  - font kerning
  *  - put font faces/sizes in configs
- *  - BUG: setting font_num_sizes to 4 breaks
  *
  ***/
 
@@ -133,8 +132,14 @@ struct UIWindow : UIElement {
 #define ASCII_HIGH_CODE 128
 #define ASCII_LOW_CODE 32
 
-#define FONT_NUM_FACES 2
-#define FONT_NUM_SIZES 3
+#define FONT_NUM_FACES 3
+#define FONT_NUM_SIZES 6
+extern "C" {
+	const char* font_faces[] = { "data/fonts/freefont/FreeSerif.ttf",
+								 "data/fonts/droid/DroidSans.ttf",
+								 "data/fonts/freefont/FreeSans.ttf" };
+	int font_sizes[]    = { 12, 14, 48, 24, 54, 64 };
+}
 struct UIText : UIElement {
 
 	UIText(const char* text);
@@ -190,7 +195,7 @@ struct UIText : UIElement {
 					   th;        // height of character (scaled to atlas coords)
 			};
 
-			static CharacterInfo characters[FONT_NUM_FACES + FONT_NUM_SIZES][ASCII_HIGH_CODE - ASCII_LOW_CODE];
+			static CharacterInfo characters[FONT_NUM_FACES * FONT_NUM_SIZES][ASCII_HIGH_CODE - ASCII_LOW_CODE];
 			static void initFonts();
 			static std::pair<uint,uint> getFontBoundaries(FT_Face face);
 			static void setupFont(FT_Face face, uchar glyphFontIndex, uint& yOffset);

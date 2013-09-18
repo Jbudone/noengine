@@ -2,7 +2,7 @@
 
 GLint UIElement::gl = 0;
 GLint UIElement::gl_text = 0;
-UIText::UIWord::UIGlyph::CharacterInfo UIText::UIWord::UIGlyph::characters[FONT_NUM_FACES + FONT_NUM_SIZES][ASCII_HIGH_CODE - ASCII_LOW_CODE] = { };
+UIText::UIWord::UIGlyph::CharacterInfo UIText::UIWord::UIGlyph::characters[FONT_NUM_FACES * FONT_NUM_SIZES][ASCII_HIGH_CODE - ASCII_LOW_CODE] = { };
 GLuint UIText::UIWord::UIGlyph::atlasTex = 0;
 uint UIText::UIWord::UIGlyph::atlasWidth  = 0;
 uint UIText::UIWord::UIGlyph::atlasHeight = 0;
@@ -179,7 +179,7 @@ void UIWindow::render() {
 	glUseProgram(gl);
 	glBindVertexArray( vao );
 
-	glUniform1i( glGetUniformLocation( gl, "Tex2" ), GL_TEXTURE3 - GL_TEXTURE0 );
+	// glUniform1i( glGetUniformLocation( gl, "Tex2" ), GL_TEXTURE3 - GL_TEXTURE0 );
 	glDrawArrays( GL_QUADS, 0, vertexBuffer.size() );
 	glBindVertexArray( 0 );
 
@@ -199,7 +199,7 @@ void UIWindow::addText(const char* text) {
 
 	uitext->elementType = UI_ELEMENT_TEXT;
 	uitext->element     = (void*)uitext;
-	uitext->y           = this->y + 125; // padding
+	uitext->y           = this->y + 0; // padding
 	uitext->x           = this->x + 50; // padding
 	uitext->construct();
 	this->children.push_back( uitext );
@@ -229,9 +229,10 @@ void UIText::UIWord::UIGlyph::initFonts() {
 	FT_Library ft;
 	if ( FT_Init_FreeType( &ft ) ) throw exception();
 
-	const char* font_faces[] = { "data/fonts/freefont/FreeSerif.ttf",
-								 "data/fonts/droid/DroidSans.ttf" };
-	int font_sizes[]    = { 12, 14, 48, 24 };
+	// const char* font_faces[] = { "data/fonts/freefont/FreeSerif.ttf",
+	// 							 "data/fonts/droid/DroidSans.ttf",
+	// 							 "data/fonts/freefont/FreeSans.ttf" };
+	// int font_sizes[]    = { 12, 14, 48, 24, 54, 64 };
 	FT_Face face;
 
 	// Find the boundaries of the entire texture atlas
@@ -266,14 +267,15 @@ void UIText::UIWord::UIGlyph::initFonts() {
 
 
 	// Draw up the texture atlas (for each individual face/style/size combination)
-	uint yOffset = 0;
+	uint yOffset = 0,
+		 glyphFontIndex = 0;
 	for ( uchar iFont = 0; iFont < FONT_NUM_FACES; ++iFont ) {
 		for ( uchar iSize = 0; iSize < FONT_NUM_SIZES; ++iSize ) {
 
 			if ( FT_New_Face( ft, font_faces[iFont], 0, &face ) ) throw exception();
 			FT_Set_Pixel_Sizes( face, 0, font_sizes[iSize] );
-			uchar glyphFontIndex = iFont * FONT_NUM_SIZES + iSize;
 			setupFont( face, glyphFontIndex, yOffset );
+			++glyphFontIndex;
 
 		}
 	}
@@ -396,7 +398,7 @@ UIText::UIText(const char* text) {
 	numwords = 0;
 	ushort length = 0;
 	bool inWord = false;
-	uchar fontface = 2;
+	uchar fontface = 4;
 	for ( const char *c = text; *c; ++c, ++length ) {
 		if ( *c < 32 ) continue; // ignore control characters
 		if ( *c == 32 && inWord ) {
@@ -412,7 +414,7 @@ UIText::UIText(const char* text) {
 	// count up the lines
 	words = new UIWord*[numwords];
 	numlines = 1;
-	linewidth = 400;
+	linewidth = 300;
 	length = 0;
 	ushort wIndex = 0;
 	ushort lWidth = 0;
@@ -449,12 +451,12 @@ UIText::UIText(const char* text) {
 	for ( ; wIndex < numwords; ++wIndex, ++length ) {
 		if ( (lWidth += words[wIndex]->width) > linewidth ) {
 			if ( lWidth == 0 ) { // word is bigger than max line width
-				lines[lIndex] = new UITextline( words + sizeof(UIWord*)*(wIndex-length), length+1 ); // one word
+				lines[lIndex] = new UITextline( &words[(wIndex-length)], length+1 ); // one word
 				++lIndex;
 				length = 0;
 				continue;
 			}
-			lines[lIndex] = new UITextline( words + sizeof(UIWord*)*(wIndex-length), length+1 );
+			lines[lIndex] = new UITextline( &words[(wIndex-length)], length+1 );
 			++lIndex;
 			length = 0;
 			lWidth = words[wIndex]->width;
@@ -462,7 +464,7 @@ UIText::UIText(const char* text) {
 		}
 	}
 	if ( length-1 > 0 ) {
-		lines[lIndex] = new UITextline( words + sizeof(UIWord*)*(wIndex-length), length );
+		lines[lIndex] = new UITextline( &words[(wIndex-(length-1))], length-1 );
 	}
 }
 UIText::~UIText() {
@@ -512,10 +514,14 @@ void UIText::createVertexBuffer() {
 	
 	float screenWidth  = this->manager->width,
 		  screenHeight = this->manager->height;
-	uint y = this->y + UIWord::UIGlyph::atlasHeight,
-		 x = this->x;
-	for ( ushort lIndex = 0; lIndex < numlines; ++lIndex, y += lineheight ) {
+	uint y = this->y,// UIWord::UIGlyph::atlasHeight,
+		 x = this->x,
+		 minLineHeight;
+	for ( ushort lIndex = 0; lIndex < numlines; ++lIndex, y += minLineHeight ) {
+		minLineHeight = lineheight;
 		for ( ushort wIndex = 0, x = this->x; wIndex < lines[lIndex]->numwords; ++wIndex ) {
+			uint faceHeight = font_sizes[(lines[lIndex]->words[wIndex]->fontface % FONT_NUM_SIZES)] ;
+			minLineHeight = std::max( minLineHeight, faceHeight );
 			for ( ushort gIndex = 0; gIndex < lines[lIndex]->words[wIndex]->length; ++gIndex ) {
 				charInfo = lines[lIndex]->words[wIndex]->glyphs[gIndex]->glyph;
 				float texLeft = charInfo->texLeft,
@@ -525,8 +531,8 @@ void UIText::createVertexBuffer() {
 					  advance = charInfo->advance_x;
 				float left   = 2 * (float)(x + texLeft) / screenWidth - 1,
 					  right  = 2 * (float)(x + texLeft + texWidth) / screenWidth -1,
-					  top    = -2 * (float)(y - texTop) / screenHeight + 1,
-					  bottom = -2 * (float)(y - texTop + texHeight) / screenHeight + 1;
+					  top    = -2 * (float)(y + faceHeight - texTop) / screenHeight + 1,
+					  bottom = -2 * (float)(y + faceHeight - texTop + texHeight) / screenHeight + 1;
 
 				float tx = charInfo->tx,
 					  tw = charInfo->tw,
