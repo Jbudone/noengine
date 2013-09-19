@@ -24,13 +24,9 @@ UIManager::UIManager(GLint gl, GLint gl_text, float width, float height)
 
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	// Setup a test UI environment
-	UIWindow* window = this->addWindow( UIWindow( UIElement( 0, 0 ), 1400, 100 ) );
+	UIWindow* window = this->addWindow( UIWindow( UIElement( 0, 0 ), 300, 100 ) );
 	window->construct();
-	window->addText( "Testing, testing.. 123!" );
-
-
-	UIWindow* window2 = this->addWindow( UIWindow( UIElement( 250, 300 ), 82, 43 ) );
-	window2->construct();
+	window->addText( "testing.. 123! omgthislineiswaytoobig,howwilliteverfitintoonelinE!?!?! The quick brown fox jumped over the ever so lazy dog. ~!@#$%^&**()-=_+ ." );
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 }
@@ -430,45 +426,51 @@ UIText::UIText(const char* text) {
 
 			words[wIndex] = new UIWord(c - length, length, fontface);
 			length = 0;
-			if ( (lWidth + words[wIndex]->width) > linewidth ) {
-				if ( lWidth == 0 ) { // the word is bigger than the max line width..accept it anyways
+			if ( (lWidth += words[wIndex]->width) > linewidth ) {
+				if ( length == 1 ) { // the word is bigger than the max line width..accept it anyways
 					++numlines;
+					lWidth = 0;
 					continue;
 				}
 				++numlines;
 				lWidth = words[wIndex]->width;
 			}
-			lWidth += words[wIndex]->width;
 			++wIndex;
 			continue;
 		}
 		inWord = true;
 	}
-	if ( length-1 > 0 ) words[wIndex] = new UIWord(c - length, length, fontface);
+	if ( length-1 > 0 ) {
+		words[wIndex] = new UIWord(c - length, length, fontface);
+		if ( lWidth += words[wIndex]->width > linewidth ) ++numlines;
+	}
 
 	// setup the lines
 	lines = new UITextline*[numlines];
 	wIndex = 0;
 	lWidth = 0;
 	ushort lIndex = 0;
-	length = 0;
+	length = 1; // starting with first word
 	for ( ; wIndex < numwords; ++wIndex, ++length ) {
 		if ( (lWidth += words[wIndex]->width) > linewidth ) {
-			if ( lWidth == 0 ) { // word is bigger than max line width
-				lines[lIndex] = new UITextline( &words[(wIndex-length)], length+1 ); // one word
+			if ( length == 1 ) { // word is bigger than max line width
+				lines[lIndex] = new UITextline( &words[(wIndex-length)], length ); // one word
 				++lIndex;
 				length = 0;
+				lWidth = 0;
 				continue;
 			}
-			lines[lIndex] = new UITextline( &words[(wIndex-length)], length+1 );
+			lines[lIndex] = new UITextline( &words[(wIndex-(length-1))], length-1 );
 			++lIndex;
-			length = 0;
+			length = 1;
 			lWidth = words[wIndex]->width;
 			continue;
 		}
 	}
 	if ( length-1 > 0 ) {
 		lines[lIndex] = new UITextline( &words[(wIndex-(length-1))], length-1 );
+	} else {
+		--numlines; // TODO: get rid of the extra wasted line
 	}
 }
 UIText::~UIText() {
@@ -558,7 +560,6 @@ void UIText::createVertexBuffer() {
 
 // ============================================== //
 void UIText::render() {
-
 	glUseProgram(gl_text);
 	glBindVertexArray( vao );
 

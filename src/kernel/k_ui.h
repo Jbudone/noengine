@@ -135,7 +135,7 @@ struct UIWindow : UIElement {
 #define FONT_NUM_FACES 3
 #define FONT_NUM_SIZES 6
 // extern "C" {
-	const std::remove_const<const char*>::type font_faces[FONT_NUM_FACES] = { "data/fonts/freefont/FreeSerif.ttf",
+	const char* const font_faces[FONT_NUM_FACES] = { "data/fonts/freefont/FreeSerif.ttf",
 								 "data/fonts/droid/DroidSans.ttf",
 								 "data/fonts/freefont/FreeSans.ttf" };
 	const int font_sizes[FONT_NUM_SIZES]    = { 12, 14, 48, 24, 54, 64 };
