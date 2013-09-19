@@ -1,0 +1,13 @@
+# Blender MTL File: 'None'
+# Material Count: 1
+
+newmtl None
+Ns 96.078431
+Ka 0.000000 0.000000 0.300000
+Kd 0.362437 0.431828 0.640000
+Ks 0.007455 0.007482 0.005733
+Ni 1.000000
+d 1
+illum 2
+bump /home/jbud/Desktop/rock_norm.png
+map_Kd /home/jbud/Desktop/rock_tex.jpg

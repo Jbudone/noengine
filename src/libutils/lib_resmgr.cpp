@@ -73,10 +73,11 @@ Entity* ResourceManager::LoadMesh (RenderGroup* renderer, const char* filename) 
 
 			(++token);
 			ushort point_index = 0; // this helps with auto-face texcoord deciding (in case no UV mapping is specified)
+			short v_index, n_index, t_index;
 			do {
 
 				// setup sub-tokenizer (vert, norm, texcoord)
-				short v_index = -1, n_index = -1, t_index = -1; // NOTE: -1 means nonexistent; do NOT use ushort since 0 is a legal index
+				v_index = -1, n_index = -1, t_index = -1; // NOTE: -1 means nonexistent; do NOT use ushort since 0 is a legal index
 				CharTokenizer v_indices( (*token), CharSeparator("/ ","",boost::keep_empty_tokens) );
 				CharTokenizer::iterator index = v_indices.begin();
 
@@ -125,6 +126,10 @@ Entity* ResourceManager::LoadMesh (RenderGroup* renderer, const char* filename) 
 				point_index++;
 
 			} while( (++token) != tokens.end() );
+			if ( point_index == 3 ) {
+				// tri-face; since we're expecting quads just overlap the 2 end points
+				mesh->pushVertex( v_index, t_index, n_index );
+			}
 
 
 		} else if ( *token == "mtllib" ) { // material file

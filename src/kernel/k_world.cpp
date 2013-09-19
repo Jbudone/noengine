@@ -637,7 +637,7 @@ WorldActionResponse* WorldAction::apply_create_mesh(World* world, bool peekOutco
 	}
 
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-				Entity* drop = ResourceManager::LoadMesh( renderer , "data/cube.obj" );
+				Entity* drop = ResourceManager::LoadMesh( renderer , "data/monkey2.obj" );
 				drop->guid = guid;
 				Mesh* dropMesh = drop->mesh;
 				dropMesh->position = position;
