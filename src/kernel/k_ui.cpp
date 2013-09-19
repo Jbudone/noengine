@@ -7,6 +7,10 @@ GLuint UIText::UIWord::UIGlyph::atlasTex = 0;
 uint UIText::UIWord::UIGlyph::atlasWidth  = 0;
 uint UIText::UIWord::UIGlyph::atlasHeight = 0;
 
+	// const char* font_faces[] = { "data/fonts/freefont/FreeSerif.ttf",
+	// 							 "data/fonts/droid/DroidSans.ttf",
+	// 							 "data/fonts/freefont/FreeSans.ttf" };
+	// int font_sizes[]    = { 12, 14, 48, 24, 54, 64 };
 
 
 // ============================================== //

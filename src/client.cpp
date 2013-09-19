@@ -23,7 +23,7 @@
 #include "kernel/k_net.client.h"
 
 // #define NO_INPUT
-#define PLAY_LOCALLY
+// #define PLAY_LOCALLY
 
 
 void check_gl_error();
@@ -192,12 +192,10 @@ int main(int argc, char **argv) {
 		return -1;
 	}
 
-	Log( ".1" );
 	ui = new UIManager( 
 			ResourceManager::world->shadermgr->renderers.at(2)->program->programid,
 			ResourceManager::world->shadermgr->renderers.back()->program->programid,
 			width, height );
-	Log( ".2" );
 
 #ifndef NO_INPUT
 	Input::startup();
@@ -242,7 +240,7 @@ int main(int argc, char **argv) {
 #ifndef PLAY_LOCALLY
 			// TODO: set fast low-collision hashed id from (uid,reqid,time)
 			Log(str(format("Adding local action to net action buffer (%1%): %2%")%localAction.action.action%localAction.action.args));
-			(*net::actionBuffer.active)->push_back( LocalAction( (++net::reqid), 0, 0, localAction.action.action, localAction.action.args, (net::uid*256 + net::reqid) ) );
+			(*net::actionBuffer.active)->push_back( LocalAction( (++net::reqid), 0, 0, localAction.action.action, localAction.action.args, localAction.id ) );
 #endif
 		}
 		(*localActions.inactive)->clear();
@@ -262,8 +260,8 @@ int main(int argc, char **argv) {
 
 			// is this an action sent by us?
 			int actionCount = 0, removeAction = -1;
-			Log(str(format("checking received netAction (%1%): %2%")%netAction.action%netAction.args));
 			for ( LocalWorldAction localAction : (**localActions.active) ) {
+				Log(str(format("checking received netAction (%1%) == %2% ?")%localAction.id%netAction.id));
 				if ( localAction.id == netAction.id ) {
 					Log(str(format("netAction (%1%) == (%2%)   removing action from buffer")%netAction.id%localAction.id));
 					// TODO: check for modifications in the action; resync modifications if necessary

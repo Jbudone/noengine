@@ -137,7 +137,7 @@ void net::send(const LocalAction& action) {
 	const char* args = action.args;
 	message = str(format("%c%010i%010i%010i%-128s")%((char)3)%(action.reqId)%(action.id)%(action.action)%(args));
 	*/
-	Log(str(format("sending: %1%")%args.getChar()));
+	Log(str(format("sending (%1%): %2%")%action.id%args.getChar()));
 	Bfield128_t thoseArgs = action.args;
 	Log(str(format(" Args: %1%")%thoseArgs.getChar()));
 	if ( sendto( sockfd, args, BUFLEN, 0, (struct sockaddr*) &serv_addr, slen ) == -1 ) {

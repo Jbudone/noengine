@@ -83,7 +83,7 @@ void net::receive() {
 			id      = message.fetch<uint>(offset);  offset += sizeof(uint);
 			msg     = message.fetch<uint>(offset);  offset += sizeof(uint);
 			args    = Bfield128_t((const char*)message.fields+offset);
-			Log(str(format(" Args: %1%")%args.getChar()));
+			Log(str(format(" Args (%1%): %2%")%id%args.getChar()));
 			/*
 			msgType = buf[0];
 			reqId = parseInt(buf+1,10,false);
@@ -91,8 +91,8 @@ void net::receive() {
 			msg = parseInt(buf+21,10,false);
 			args = Bfield128_t(buf+31);
 			*/
-			Log(str(format("   msg(%1%) [ %2% ]")%msgType%buf));
-			Log(str(format("   message (%1%): %2%")%reqId%msg));
+			// Log(str(format("   msg(%1%) [ %2% ]")%msgType%buf));
+			// Log(str(format("   message (%1%): %2%")%reqId%msg));
 
 			if ( msgType == 3 && msg == 0 ) {
 				// CONNECT user
@@ -201,7 +201,7 @@ void net::send() {
 	for ( auto action : (**sendQueue.inactive) ) {
 		Bitfield<BUFLEN> message;
 		unsigned char offset = 0;
-		offset = message.append<char>(3,offset);
+		offset = message.append<char>((char)3,offset);
 		offset = message.append<int>(action.initiatorId,offset);
 		offset = message.append<uint>(action.id,offset);
 		offset = message.append<uint>(action.action,offset);
@@ -221,7 +221,7 @@ void net::send() {
 				}
 			} else {
 			*/
-				Log(str(format( "Relaying message (%1%)!!!")%message));
+				Log(str(format( "Relaying message (%1%)!!!")%action.id));
 				if ( sendto( sockfd, message, BUFLEN, 0, (struct sockaddr*) &client.client, slen ) == -1 ) {
 					Log( "Error: relaying message" );
 				}
@@ -274,7 +274,7 @@ void net::step(int delay) {
 		// NOTE: this isn't COMPLETELY accurate since we could have heard
 		// 		from the user just before this; however that means we could
 		// 		be off by only a maximum of (delay) amount
-		if ( (client.delay += delay) >= 10000 ) {
+		if ( (client.delay += delay) >= 30000 ) {
 			// Disconnect this user
 			Log(str(format("DISCONNECTING USER (%1%) haven't heard from him %2% ms")%client.playerId%client.delay));
 			removeClient = clientCount;

@@ -644,6 +644,7 @@ WorldActionResponse* WorldAction::apply_create_mesh(World* world, bool peekOutco
 				dropMesh->position.z *= -1;
 				dropMesh->position.x *= -1;
 				dropMesh->position.y *= -1;
+				Log(str(format("Dropping Mesh (%1%) with: <%2%,%3%,%4%>")%guid%position.x%position.y%position.z));
 				world->updateEntityPage(drop);
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
