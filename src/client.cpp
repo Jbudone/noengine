@@ -23,7 +23,7 @@
 #include "kernel/k_net.client.h"
 
 // #define NO_INPUT
-// #define PLAY_LOCALLY
+#define PLAY_LOCALLY
 
 
 void check_gl_error();
@@ -490,6 +490,10 @@ void mouseClick(int button, int state, int x, int y) {
 				yw*=-1*fov;
 
 				Entity* selection = ResourceManager::world->worldPick( xw, yw );
+
+				if ( !selection ) {
+					ResourceManager::world->terrain->terrainPick( xw, yw );
+				}
 
 				mouse_selecting = false;
 			}

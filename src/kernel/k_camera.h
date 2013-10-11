@@ -39,7 +39,7 @@ public:
 	Camera() {}
 
 	glm::vec3 position = glm::vec3(  0.0f, 0.0f, -5.0f );
-	glm::vec3 rotation = glm::vec3( 0.0f, 0.0f, 0.0f );
+	glm::vec3 rotation = glm::vec3( 0.0f, 0.0f, 3.15f );
 
 	glm::mat4 perspective;
 	glm::mat4 view;

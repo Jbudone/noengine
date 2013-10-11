@@ -59,16 +59,15 @@ void World::loadWorld() {
 
 
 
-		// load UI shader
+		// load terrain shader
 		ShaderProgram *program3 = shadermgr->createProgram();
 		glUseProgram( program3->programid );
 		ShaderSet *shader3 = new ShaderSet();
-		if ( shadermgr->loadShader( program3, "data/shaders/ui.vert", GL_VERTEX_SHADER, SHD_NONE, &shader3 ) & ERROR ) { throw exception(); }
-		Log( "Loaded UI vert shader" );
-		if ( shadermgr->loadShader( program3, "data/shaders/ui.frag", GL_FRAGMENT_SHADER, 0, &shader3 ) & ERROR ) { throw exception(); }
-		Log( "Loaded UI frag shader" );
+		if ( shadermgr->loadShader( program3, "data/shaders/terrain.vert", GL_VERTEX_SHADER, SHD_NONE, &shader3 ) & ERROR ) { throw exception(); }
+		Log( "Loaded terrain vert shader" );
+		if ( shadermgr->loadShader( program3, "data/shaders/terrain.frag", GL_FRAGMENT_SHADER, 0, &shader3 ) & ERROR ) { throw exception(); }
+		Log( "Loaded terrain frag shader" );
 		shadermgr->addShaderParameter( shader3, "in_Position", SHDIN_POSITION );
-		shadermgr->addShaderParameter( shader3, "in_Texcoord", SHDIN_TEXCOORD );
 
 		program3->shaders.push_back( shader3 );
 		shadermgr->linkProgram( program3 );
@@ -76,23 +75,47 @@ void World::loadWorld() {
 		glUseProgram(0);
 
 
-
-		// load UI Text shader
+		// load UI shader
 		ShaderProgram *program4 = shadermgr->createProgram();
 		glUseProgram( program4->programid );
 		ShaderSet *shader4 = new ShaderSet();
-		if ( shadermgr->loadShader( program4, "data/shaders/ui.text.vert", GL_VERTEX_SHADER, SHD_NONE, &shader4 ) & ERROR ) { throw exception(); }
+		if ( shadermgr->loadShader( program4, "data/shaders/ui.vert", GL_VERTEX_SHADER, SHD_NONE, &shader4 ) & ERROR ) { throw exception(); }
 		Log( "Loaded UI vert shader" );
-		if ( shadermgr->loadShader( program4, "data/shaders/ui.text.frag", GL_FRAGMENT_SHADER, 0, &shader4 ) & ERROR ) { throw exception(); }
+		if ( shadermgr->loadShader( program4, "data/shaders/ui.frag", GL_FRAGMENT_SHADER, 0, &shader4 ) & ERROR ) { throw exception(); }
 		Log( "Loaded UI frag shader" );
-		shadermgr->addShaderParameter( shader4, "coord", SHDIN_TEXCOORD );
+		shadermgr->addShaderParameter( shader4, "in_Position", SHDIN_POSITION );
+		shadermgr->addShaderParameter( shader4, "in_Texcoord", SHDIN_TEXCOORD );
 
 		program4->shaders.push_back( shader4 );
 		shadermgr->linkProgram( program4 );
 		RenderGroup* renderer4 = shadermgr->createRenderer( program4 );
 		glUseProgram(0);
 
+
+
+		// load UI Text shader
+		ShaderProgram *program5 = shadermgr->createProgram();
+		glUseProgram( program5->programid );
+		ShaderSet *shader5 = new ShaderSet();
+		if ( shadermgr->loadShader( program5, "data/shaders/ui.text.vert", GL_VERTEX_SHADER, SHD_NONE, &shader5 ) & ERROR ) { throw exception(); }
+		Log( "Loaded UI vert shader" );
+		if ( shadermgr->loadShader( program5, "data/shaders/ui.text.frag", GL_FRAGMENT_SHADER, 0, &shader5 ) & ERROR ) { throw exception(); }
+		Log( "Loaded UI frag shader" );
+		shadermgr->addShaderParameter( shader5, "coord", SHDIN_TEXCOORD );
+
+		program5->shaders.push_back( shader5 );
+		shadermgr->linkProgram( program5 );
+		RenderGroup* renderer5 = shadermgr->createRenderer( program5 );
+		glUseProgram(0);
+
 	}
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	// Add terrain
+	RenderGroup* r = shadermgr->renderers.at(2);
+	terrain = new Terrain( shadermgr->renderers.at(2)->program->programid );
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
@@ -167,6 +190,7 @@ void World::render() {
 				if ( inVisualSphere(entity) ) entity->mesh->render();
 			}
 		}
+		if ( terrain ) terrain->render();
 	}
 }
 // ============================================== //
@@ -194,7 +218,7 @@ Entity* World::worldPick(float xw, float yw) {
 	float nearestHit = 0.0f;
 	float thisHit    = 0.0f;
 	for( auto m : entities ) {
-		glm::vec4 modelRayDir = glm::inverse(view) * glm::inverse(perspective) * rayDir;
+		glm::vec4 modelRayDir = glm::inverse(view) * glm::inverse(perspective) * rayDir * glm::vec4( -1.0f, -1.0f, 1.0f, 1.0f );
 		// glm::vec4 modelRayDir = glm::inverse(view) * rayDir;
 		modelRayDir.x /= modelRayDir.w;
 		modelRayDir.y /= modelRayDir.w;
@@ -202,6 +226,7 @@ Entity* World::worldPick(float xw, float yw) {
 		modelRayDir.w /= modelRayDir.w;
 		modelRayDir = glm::normalize(modelRayDir);
 		Log(str(format("Trying to select.. (%1%,%2%,%3%) + t<%4%,%5%,%6%>")%rayPos.x%rayPos.y%rayPos.z%modelRayDir.x%modelRayDir.y%modelRayDir.z));
+		Log(str(format(" Entity: (%1%,%2%,%3%)")%m->mesh->position.x%m->mesh->position.y%m->mesh->position.z));
 		if ( ( thisHit = m->mesh->lineIntersects( rayPos, modelRayDir.xyz ) ) > 0.0f ) {
 			// pick this object
 			if ( selection && m == selection ) Log("  Already picked this Entity!");

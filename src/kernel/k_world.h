@@ -26,6 +26,7 @@
 #include "libutils/lib_resmgr.h"
 #include "libutils/lib_shdmgr.h"
 #include "kernel/k_camera.h"
+#include "kernel/k_terrain.h"
 
 
 /*
@@ -47,6 +48,7 @@ typedef vector<WorldActionResponse*> WorldActionResponses;
 class ShaderManager;
 class Entity;
 struct Page;
+class Terrain;
 class World {
 	float friction;
 	Entity* selection;
@@ -61,6 +63,7 @@ public:
 	void step(float ms, WorldActionResponses* responses = 0); // step physics forward
 
 	vector<Entity*> entities;
+	Terrain* terrain = 0;
 
 	/* Paging
 	 *

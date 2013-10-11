@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string>
-#include <cmath>
 #include <stdint.h>
 #include "typeinfo/t_errors.h"
 #include "typeinfo/t_types.h"

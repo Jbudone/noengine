@@ -9,12 +9,16 @@ void Camera::update() {
 	glm::mat4 perspective = glm::perspective( fov, aspect, near, far );
 
 	// setup camera view
+	glm::quat quatZ = glm::angleAxis( glm::degrees( rotation.z ), glm::vec3( 0.0f, 0.0f, 1.0f ) );
 	glm::quat quatY = glm::angleAxis( glm::degrees( rotation.y ), glm::vec3( -1.0f, 0.0f, 0.0f ) );
 	glm::quat quatX = glm::angleAxis( glm::degrees( rotation.x ), glm::vec3( 0.0f, 1.0f, 0.0f ) );
-	glm::quat quat = quatY * quatX;
-	view = glm::translate( glm::toMat4(quat), camera.position );
+	glm::quat quat = quatY * quatX * quatZ;
+	view = glm::translate( glm::toMat4(quat), position );
 
+	// glm::vec3 flipPerspective = glm::vec3( -1.0f, -1.0f, 1.0f );
+	// glm::vec3 flipPerspective = glm::vec3( 1.0f, 1.0f, 1.0f );
 	perspectiveView = perspective * view;
+	// perspectiveView = glm::scale( perspectiveView, flipPerspective );
 }
 
 void Camera::rotX(int offset) {
@@ -30,9 +34,10 @@ void Camera::rotY(int offset) {
 void Camera::move(int x, int y, int z) {
 
 	// setup rotation for local camera translation
+	glm::quat quatZ = glm::angleAxis(glm::degrees(rotation.z), glm::vec3(0.0f,0.0f,1.0f));
 	glm::quat quatY = glm::angleAxis(glm::degrees(rotation.y), glm::vec3(-1.0f,0.0f,0.0f));
 	glm::quat quatX = glm::angleAxis(glm::degrees(rotation.x), glm::vec3(0.0f,1.0f,0.0f));
-	glm::quat quat = quatY * quatX;
+	glm::quat quat = quatY * quatX * quatZ;
 	glm::mat4 rotate = glm::toMat4(quat);
 	rotate = glm::inverse(rotate);
 

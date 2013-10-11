@@ -26,7 +26,7 @@ UIManager::UIManager(GLint gl, GLint gl_text, float width, float height)
 	// Setup a test UI environment
 	UIWindow* window = this->addWindow( UIWindow( UIElement( 0, 0 ), 300, 100 ) );
 	window->construct();
-	window->addText( "testing.. 123! omgthislineiswaytoobig,howwilliteverfitintoonelinE!?!?! The quick brown fox jumped over the ever so lazy dog. ~!@#$%^&**()-=_+ ." );
+	// window->addText( "testing.. 123! omgthislineiswaytoobig,howwilliteverfitintoonelinE!?!?! The quick brown fox jumped over the ever so lazy dog. ~!@#$%^&**()-=_+ ." );
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 }

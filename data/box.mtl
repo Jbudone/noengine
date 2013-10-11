@@ -9,3 +9,5 @@ Ks 0.500000 0.500000 0.500000
 Ni 1.000000
 d 1.000000
 illum 2
+bump /home/jbud/Desktop/rock_norm.png
+map_Kd /home/jbud/Desktop/rock_tex.jpg

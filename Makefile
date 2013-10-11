@@ -1,5 +1,5 @@
 
-SOURCE_COMMON = lib_logger.o k_memory.o lib_containers.o lib_shdmgr.o lib_resmgr.o  k_camera.o k_mesh.o k_entity.o k_world.o lib_math.o k_ui.o soil.a
+SOURCE_COMMON = lib_logger.o k_memory.o lib_containers.o lib_shdmgr.o lib_resmgr.o  k_terrain.o k_camera.o k_mesh.o k_entity.o k_world.o lib_math.o k_ui.o soil.a
 SOURCE_SERVER = server.o k_net.server.o $(SOURCE_COMMON)
 SOURCE_CLIENT = client.o k_net.client.o $(SOURCE_COMMON)
 NEW_WARNINGS = -Wc++11-compat -Wmaybe-uninitialized 
