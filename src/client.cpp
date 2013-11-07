@@ -396,8 +396,8 @@ void keyboard(unsigned char key, int xx, int yy) {
 			input_state |= INPUT_RIGHT; break;
 		case 119: // BACKWARD (w)
 			input_state |= INPUT_BACKWARD; break;
-		case 115: // DOWN
-			input_state |= INPUT_DOWN; break;
+		case 115: // UP
+			input_state |= INPUT_UP; break;
 	}
 }
 
@@ -410,7 +410,7 @@ void keyboardRelease(unsigned char key, int xx, int yy) {
 		case 119: // BACKWARD (w)
 			input_state &= ~INPUT_BACKWARD; break;
 		case 115: // DOWN
-			input_state &= ~INPUT_DOWN; break;
+			input_state &= ~INPUT_UP; break;
 		case 111: // DROP
 			{
 				uint dropguid = ResourceManager::world->entities.size();
@@ -492,7 +492,26 @@ void mouseClick(int button, int state, int x, int y) {
 				Entity* selection = ResourceManager::world->worldPick( xw, yw );
 
 				if ( !selection ) {
-					ResourceManager::world->terrain->terrainPick( xw, yw );
+
+					glm::vec3 rayPos = camera.position;
+
+					// ray direction
+					glm::vec4 rayDir      = glm::vec4( xw, yw, 1.0f, 1.0f );
+					glm::mat4 perspective = camera.perspective;
+					glm::quat quatY       = glm::angleAxis( glm::degrees( camera.rotation.y ), glm::vec3( -1.0f, 0.0f, 0.0f ) );
+					glm::quat quatX       = glm::angleAxis( glm::degrees( camera.rotation.x ), glm::vec3( 0.0f, 1.0f, 0.0f ) );
+					glm::quat quat        = quatY * quatX;
+					glm::mat4 view        = glm::toMat4(quat);
+
+					glm::vec4 modelRayDir = glm::inverse(view) * glm::inverse(perspective) * rayDir * glm::vec4( -1.0f, -1.0f, 1.0f, 1.0f );
+					// glm::vec4 modelRayDir = glm::inverse(view) * rayDir;
+					modelRayDir.x /= modelRayDir.w;
+					modelRayDir.y /= modelRayDir.w;
+					modelRayDir.z /= modelRayDir.w;
+					modelRayDir.w /= modelRayDir.w;
+					modelRayDir = glm::normalize(modelRayDir);
+
+					ResourceManager::world->terrain->terrainPick( rayPos, glm::vec3(modelRayDir) );
 				}
 
 				mouse_selecting = false;

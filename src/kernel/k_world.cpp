@@ -115,7 +115,9 @@ void World::loadWorld() {
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	// Add terrain
 	RenderGroup* r = shadermgr->renderers.at(2);
+Log("a");
 	terrain = new Terrain( shadermgr->renderers.at(2)->program->programid );
+Log("b");
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 

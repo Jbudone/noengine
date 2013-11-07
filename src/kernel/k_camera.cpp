@@ -46,6 +46,7 @@ void Camera::move(int x, int y, int z) {
 	glm::vec4 translation =  glm::vec4(x,y,z,1.0f);
 	translation = rotate * translation;
 	translation = move_speed * translation;
+	translation.w /= 10;
 
 	position.x += translation.x / translation.w;
 	position.y += translation.y / translation.w;

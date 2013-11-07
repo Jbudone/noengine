@@ -1,8 +1,8 @@
 
 #define WIN_SETTINGS
 
-#define WIN_WIDTH  500
-#define WIN_HEIGHT 500
+#define WIN_WIDTH  1000
+#define WIN_HEIGHT 800
 #define WIN_X      300
 #define WIN_Y      200
 
@@ -11,11 +11,11 @@
 #define VERSION_MINOR 0
 
 #define NGL_NEAR -100.0f
-#define NGL_FAR   500.0f
+#define NGL_FAR   2000.0f
 
 #define CAM_FOV 45.0f
 #define CAM_NEAR 0.1f
-#define CAM_FAR 500.0f
+#define CAM_FAR 2000.0f
 
 
 #define WRLD_MAX_WIDTH   2000.0f

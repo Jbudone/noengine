@@ -6,7 +6,189 @@
  *
  * Terrain Engine
  *
+ * Top Priority
+ *  -> CLEAN
+ *  -> Tri-tree
+ *  -> T-junction
+ * 	-> Pooled VBO's w/ Shaders + Dynamic Drawing
+ * 	-> Fast Querying(picking) + Caching
+ * 	-> Delaunay & LOD rendering ;; Show/Control LOD + Chunks
+ * 	-> Multirendering ;; Control wireframe
+ * 	-> Physics
+ * 	-> Sculpting (CSG)
+ * 	-> Server/Client
+ * 	-> Redo Tree / Undo
+ * 	-> Portal
+ * 	-> Smooth + Parent Tris
+ * 	-> Tessellation
+ * 	-> Geometry shader
+ * 	-> Automatic & Set shader areas
+ * 	-> Draw heightmap/destructable area
+ * 	-> Noise & Destruction area on CSG
+ * 	-> Automatic formation (separate program?) + Feed into
+ * 		this terrain
+ * 	-> Weather + Sky
+ * 	-> Grass ;; Vegetation shaders ;; Formation of
+ * 		vegetation
+ * 	-> Plant billboards ;; L-Systems
+ * 	-> Trees ;; L-Systems
+ * 	-> Oceans
+ *
  * TODO
+ *  - preparation for terrain system
+ *  	> Terrain > Smooth > Tessellation + Geometry/Normals
+ *  	(markings & pickaxe & footprints)
+ *  		
+ *  		Normal/Geometry maps: use conditional query to
+ *  			specified chunks to defer shading on
+ *  			certain tris (range); sort VBO's by shaders,
+ *  			use pools for newly added tris (LIST)
+ *  			CHUNKS[]*(SHADERS[]+LOD[])  better
+ *  			queries/manipulation
+ *  			Use an atlas (in chunk) of
+ *  			shaders/positions; can also help with
+ *  			queries and selecting triangles
+ *  			Keep outside list of shaders with array of
+ *  			Chunks that are apart of it, then load
+ *  			shader -> render each chunk
+ *  			Store other data for these shaders
+ *  			(repeatedly picking at a chunk area starts
+ *  			to break it down and eventually destructs
+ *  			the terrain)
+ *
+ *  		Shadows: colour value for each triangle which is
+ *  		metadata for shadows; dynamic editing for shadow
+ *  		(double the memory?) which can check and cache
+ *  		nearest light sources and objects and update
+ *  		colour value; needs to update everytime
+ *  		something which could affect it updates position
+ *
+ *  		Create list of tessellation control points which
+ *  		are connected via a tree; tri's/patches select
+ *  		nearest neighbour control points and interpolate
+ *  		from current position/normal
+ *
+ *
+ *  	> Pooled vertices & triangles
+ *
+ *  		Patches: sort tris by shaders[] -> patches[] in
+ *  		vbo; then have a tree ptr atlas to positions..
+ *
+ *  		ShaderList: a list of shaders within Chunk, each
+ *  		shader is a vbo of tris; vbo's are patch sorted;
+ *  		defer shader shading to be done from the terrain
+ *  		renderer?(list of separate shaders to render
+ *  		(sorted by position of group;[cache position
+ *  		nearest you] stored as groups), list of chunks
+ *  		to render each); pool of tris which are sorted
+ *  		by patches; linked list of shaders across chunks
+ *  		(could use for non-LOD and draw-once-per-frame)
+ *  		SHADERS[] + CHUNKS[]*LOD[]
+ *
+ *  	> Show chunk(s) in different LOD formats (eg. when
+ *  		sculpting)
+ *  	> tri-tree; parent tri's?
+ *  	> Delaunay simplification
+ *  	> decals (multirender? separate triangles from
+ *  		shader lists? separate geometry?)
+ *
+ *  		RangedTris: order tri's in chunk by shader, then
+ *  			on render take shaderid as arg and render
+ *  			range of tri's for that shader
+ *  			USE THIS FOR BASE LAYER / SPLATTING?
+ *  			 ? how to specify this between server/client
+ *
+ * 			Separate Geometry: rock paths, wall decals, etc.
+ * 				create texture atlas for norm, geom, texture
+ *
+ * 			Teseellation Control Points: eg. erosion, used
+ * 			elsewhere
+ *
+ * 			Multirender: copy list and create new VBO for
+ * 				tri's; keep in separate shader (LOD?);
+ * 				geometry shader should push all vertices
+ * 				outwards (along normal) by epsilon distance
+ * 				(OR can we simply leave these shaders for
+ * 				last to avoid Z-fighting between base
+ * 				layer?)
+ * 				USE THIS FOR HIGHLIGHTS & TEMP SHADERS
+ *  	> Update tree, undo/redo
+ *
+ *  		Keep a copy of action done to vertices (easy to
+ *  		reverse), selected vertices, removed tris (old
+ *  		list) AND replaced tris
+ *  		THIS is a change leaf; use a tree of leaves
+ *  	> Cached serialization w/ cached sculpting + merging
+ *
+ *  		Send LOD3 (1 less quality from non-modified
+ *  		LOD2); stream LOD2 as we near and quality isn't
+ *  		TOO bad (scheduler); LOD1 and LOD0 done on
+ *  		client side -- stream specialized data like
+ *  		markings and footprints as we get WAY closer;
+ *  		send tessellation control tree (IF requested)
+ *
+ *  		LOD3 object serialization cached; also LOD2
+ *
+ *  		Send queued updates to terrain to dling users;
+ *  		continuously update terrain w/ queued updates
+ *  		; make a copy of terrain chunks BEFORE editing,
+ *  		then swap (swapbuffer) w/ newest changes when
+ *  		not being accessed (SCHEDULER)
+ *
+ *  	> Vegetation, Erosion, Plate Tectonics, Lake
+ *  		Networks, Cave/Dungeons, Mountains, Rocks
+ *  	> Select area for some procedural generation and
+ *  		noise
+ *  	> Sculpt
+ *  		
+ *  		Use CSG for intersection w/ terrain; including
+ *  		subdividing parts to fit closest to bend parts
+ *  		(LOD 2); hard corner for LOD 3
+ *			Use displacement map (noisy) on inside part of
+ *			shape (stored in displacement map shader --
+ *			refer to texture atlas for terrain -- NOT atlas
+ *			has unique textures AND repeatedly used
+ *			textures)
+ *			Allow for drawing along terrain to select AREA
+ *			of CSG object)
+ *
+ *			Apply heightmap to area (drawn possibly)
+ *			Apply lake network to area
+ *			Apply **** history to area (lakes takeover,
+ *			lava, plate tectonics)
+ *
+ *		VEGETATION
+ *			
+ *			Place a ball in the scene in which all areas of
+ *			the terrain which are in view of that ball will
+ *			do post-rendering (plants, grass, moss, etc.).
+ *			Use a texture atlas? or a vegetation texture
+ *			map? to specify where plants are with respect to
+ *			viewable position from ball... balls can be
+ *			linked together along a chained path.
+ *
+ *			Automatic: grass area grows where visible to
+ *			sun; partition chunk shaders where chunk is
+ *			separated (outside portion of chunk, inside
+ *			ceiling/cavern part of chunk)
+ *
+ *		MERGING?
+ *		
+ *
+ *  - pause during procedural generation & add triangles;
+ *  undo tree (backstep & resume); auto pause at certain
+ *  part; add next X tri's (step x10); should scale for
+ *  other things in future
+ *  - FIX: overlapping triangles
+ *  - add tri's in groups? (allow dynamic groups, and each
+ *  group assigned a colour for easy viewing)
+ *  - clean: TODO list, code, structure
+ *  - optimize: static memory for terrain; pools of
+ *  triangles?
+ *
+ *
+ *
+ *
  *
  *  - load texture, step through and build terrain out of
  *    procedural generation
@@ -42,6 +224,7 @@
 
 
 #include "util.inc.h"
+#include <csignal>
 
 #include "extern/GL/glew.h"
 
@@ -55,10 +238,10 @@
 
 	Terrain
 
-	All terrain handling, managing and storing. This will be
-	able to procedurally generate terrain, as well as
-	various terrain features (river networks, caverns,
-	foliage, etc.)
+	Implements a voxel based terrain system. Terrain handles
+	both graphical and physical model of the terrain. A
+	voxel based approach allows for easy manipulation in a
+	destructable terrain model.
 
 =================================================
 */
@@ -67,43 +250,54 @@ struct Voxel;
 struct Chunk;
 template <class T> struct Point;
 template <class T> struct QuadTree;
-class TerrainVertexBuffer;
-struct ControlPoint;
+class Vertex;
 struct TerrainSelection;
+struct Triangle;
+struct TriangleNode;
 class Terrain {
-	GLuint vao, vbo;
-	const uint width  = 5000,
-		  	   depth  = 5000,
+	// GLuint vao, vbo; // TODO: remove these?
+
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	// Terrain map specifications
+	const uint width  = 800,
+		  	   depth  = 800,
 			   height = 5000; // maximum height
+	double dbgID = 0; // TODO: used for debugging terrain
+					  // 		model, remove this or
+					  // 		implement properly
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 public:
 
-	Terrain(GLuint gl);
+	Terrain(GLuint gl); // TODO: how to handle shaders?
 	~Terrain();
 	void clearTerrain();
-	TerrainSelection* terrainPick(float xw, float yw);
+
+	TerrainSelection* terrainPick(glm::vec3 position, glm::vec3 direction);
 
 	Chunk* headChunk = 0;
+	vector<Vertex> vertexBuffer; // all vertices in the terrain
+	Voxel* voxelTree; // voxel tree of terrain
+	vector<Triangle> debugTriangles; // TODO: remove or implement debug mode properly
 
-	QuadTree<TerrainVertexBuffer>* verticesQuadTree;
-	QuadTree<ControlPoint>* compressedQuadTree;
-	vector<TerrainVertexBuffer> vertexBuffer;
-	GLuint gl;
+
+	/* Rendering
+	 *
+	 * Loops through chunk hextree and renders each
+	 ***/
 	void construct();
 	void render();
+	GLuint gl;
 
 	/* Procedural Generation
 	 *
-	 * Adopts the Perlin noise for a heightmap like terrain;
-	 * this type of terrain will need to be converted and
-	 * optimized into a voxel octree format afterwards
+	 * Applies a simple random growth function to each voxel
+	 * during the generation of the voxel tree. Triangles
+	 * are tessellated seamlessly between chunks.
 	 ***/
-	void decompressTerrain(); // clears current terrain and recreates it from the compressedQuadTree
-	void generateTerrain(); // clears current terrain and creates a heightmap type terrain
-	void fetchCriticalPoints(); // search through the voxel quadtree and setup the critical points (derivative control points) quadtree
-	void generateTerrain2(); // a test..
-	QuadTree<TerrainVertexBuffer>* generateVoxel(int x, int z, QuadTree<TerrainVertexBuffer>* backVoxel = 0, QuadTree<TerrainVertexBuffer>* rightVoxel = 0);
+	void generateTerrain(); // create voxel tree and randomize voxel heights (interpolated between neighbour points)
 	Chunk* createChunks(Point<int> point, Chunk* below, Chunk* behind);
-	Chunk* addVoxelIntoChunk(Chunk* chunk, Voxel* voxel);
+	vector<TriangleNode*> addTriangleIntoChunk(Chunk* chunk, Voxel* p0, Voxel* p1, Voxel* p2);
+	vector<TriangleNode*> mergeT(vector<TriangleNode*>,vector<TriangleNode*>);
 };
 
 template<class T>
@@ -113,28 +307,98 @@ struct Point {
 	T x; T y; T z;
 };
 
-struct Slope {
-	char v, a;
-};
 
-struct ControlPoint {
-	Slope dzdx;
-	Slope dzdy;
-
+struct Vertex {
+	Vertex() { }
+	Vertex(float v_x, float v_y, float v_z) : v_x(v_x), v_y(v_y), v_z(v_z) { }
 	float v_x, v_y, v_z;
-	float n_x, n_y, n_z;
+	bool operator ==(Vertex& vertex) { return (v_x==vertex.v_x&&v_y==vertex.v_y&&v_z==vertex.v_z); }
 };
 
-
-struct TerrainVertexBuffer {
-	TerrainVertexBuffer(float v_x, float v_y, float v_z) : v_x(v_x), v_y(v_y), v_z(v_z) { }
-	float v_x, v_y, v_z;
+struct Triangle {
+	Triangle(ushort p0, ushort p1, ushort p2) : p0(p0), p1(p1), p2(p2) { }
+	ushort p0, p1, p2;
+	// uchar metadata;
+	bool operator ==(Triangle& triangle) { 
+		// TODO: fix this (backface culling)
+		return ((p0==triangle.p0||p0==triangle.p1||p0==triangle.p2)&&(p1==triangle.p0||p1==triangle.p1||p1==triangle.p2)&&(p2==triangle.p0||p2==triangle.p1||p2==triangle.p2));
+	}
 };
 
-struct Voxel {
-	QuadTree<TerrainVertexBuffer>* vertex;
-	ControlPoint* controlPoint;
-	Bitfield<16> metadata;
+struct TriangleNode {
+	Chunk* chunk;
+	unsigned short triangleID;
+	TriangleNode* neighbour_p0p1;
+	TriangleNode* neighbour_p0p2;
+	TriangleNode* neighbour_p1p2;
+};
+
+struct EdgeTriTree {
+
+	struct Tri {
+		Tri(Chunk* chunk, ushort triIndex) : chunk(chunk), triIndex(triIndex) {
+			p0 = chunk->triangleBuffer[triIndex].p0;
+			p1 = chunk->triangleBuffer[triIndex].p1;
+			p2 = chunk->triangleBuffer[triIndex].p2;
+		}
+		ushort triIndex;
+		Chunk* chunk;
+		ushort p0, p1, p2;
+
+		Tri* neighbour_p0p1 = 0;
+		Tri* neighbour_p1p2 = 0;
+		Tri* neighbour_p2p0 = 0;
+	};
+	struct EdgeTriNode {
+		ushort p0, p1; // edge
+		vector<Tri*> triangles_p0p1; // triangles on p0p1 side
+		vector<Tri*> triangles_p1p0; // triangles on p1p0 side
+
+		EdgeTriNode* leftNode  = 0;
+		EdgeTriNode* rightNode = 0;
+
+		void subdivideTriangles(); // subdivide the edge and re-neighbour the tri's
+	};
+
+	/* Edge List
+	 *
+	 * Edges come in a pair (p0,p1) == (p1,p0) and are
+	 * sorted. Edges are stored in a linked list of linked
+	 * lists. p0 is ALWAYS less than p1 (if not, then we
+	 * switch p0 and p1 in the add process and add the
+	 * triangle to the other side of the edge)
+	 *
+	 * Parent Linked List: sorted list of {p0, linked list},
+	 * where we sort by p0 (index of vertex) and store a
+	 * linked list with that vertex
+	 *
+	 * Child Linked List: sort list of {p1, EdgeTriNode},
+	 * sorted by p1
+	 *
+	 * TODO: consider a table which gives ptr to each
+	 * half-way point (when list becomes big enough, add
+	 * quater-way point, etc.)
+	 *
+	 ***/
+	struct PointNode {
+		ushort p0;
+		EdgeTriNode* edgeNode = 0;
+		PointNode* leftPoint  = 0;
+		PointNode* rightPoint = 0;
+	};
+
+
+	PointNode* cachedPoint = 0; // cached ptr to last accessed point node
+	vector<EdgeTriNode*> nodesNeedSubdividing;
+	void addTriangle(Chunk* chunk, ushort triIndex);
+	// TODO: linkedList of linkedList of edges; sort outer
+	// and inner lists by ushort index. addTriangle adds to
+	// linkedList by switching p0/p1 to make p0<p1; if
+	// switched specify we're on other side of edge. Cache
+	// lists to last used point and start from there during
+	// add process. NOTE: use vertex index, NOT
+	// chunk-dependent triangle indices
+	EdgeTri* addTriangle(Tri* tri, ushort p0, ushort p1);
 };
 
 template<class T>
@@ -293,13 +557,49 @@ struct TerrainSelection {
 
 /* Chunk
  *
- * Used for storing a set of voxels surrounded by an AABB;
- * chunk contains voxels, triangles formed by voxels, and
- * partial triangles formed between voxels within this chunk
- * and an adjacent chunk. Chunks are apart of a HexTree
- * where each face may be connected to another Chunk. Each
- * chunk also contains a list of portals (ptr to portal
- * table) of portals that its connected to.
+ * The 3d multi-level equivalent of a patch
+ * Chunks store a set of voxels surrounded by an AABB;
+ * chunks contain voxels and triangles (each are stored in
+ * contiguous memory and used for VBO's). Triangles are
+ * stored as a Triple of indices to the stored voxels.
+ * Chunks are apart of a HexTree where each face may be
+ * connected to another Chunk. Each chunk contains a list of
+ * portals (ptr to portal table) of portals that its
+ * connected to.
+ *
+ * 		Voxel Storage
+ *	Voxels are stored in an unordered resizable array
+ *
+ * 		Triangle Storage
+ * 	Triangles contain 3 indices points; the triangles are
+ * 	stored in a particular Shader object in LOD[0], as well
+ * 	as any further LOD objects in which the triangle is
+ * 	still necessary. 
+ *
+ * 		Adding Triangles
+ * 	When triangles are added, some of the voxels may already
+ * 	exist in the voxel container; if so then we simply use
+ * 	that voxel as the index for that vertex of this
+ * 	triangle. If ALL voxels are already inside the voxel
+ * 	container then simply skip adding this triangle.
+ * 	Sometimes a triangle may contain voxels which are
+ * 	outside of the chunk; in this case those voxels are
+ * 	projected onto the chunk and the projections are used
+ * 	instead. These projections are returned to the caller so
+ * 	that the caller may continuously add the triangle as
+ * 	multiple parts to other chunks. These split triangles
+ * 	are given a metadata value which states that its
+ * 	currently shared across chunks, which helps in stitching
+ * 	the seams across chunks after changes to the terrain
+ *
+ * 			 |*   |
+ * 		|----|----|
+ * 		|   *|*   |
+ * 		|    |    |
+ * 		|----|----|
+ * 	
+ *
+ *
  *
  * 		Multiple Portals
  * 	A chunk contains some arbitrary set of voxels within a
@@ -314,43 +614,96 @@ struct TerrainSelection {
  * 	chunk
  *
  *
- * 		Voxel Storage
- *	A line is stretched from the lower (x,y,z) corner of the
- *	chunk to the far (x,y,z) corner; voxels are projected
- *	onto this line and stored in a linked list along this
- *	line
- *
- *		Triangle Storage
- *	TODO
- *
- *
- * 		Voxel Connections across Chunks
- * Grouped voxels that form a triangle may be shared
- * across chunks which are not immediately adjacent to each
- * other; eg. 1 point in this chunk, 1 point in neighbour
- * chunk, and 1 point in its neighbour (to our corner or
- * folding point)
- *
- * 			 |*   |
- * 		|----|----|
- * 		|   *|*   |
- * 		|    |    |
- * 		|----|----|
- *
  **/
+struct Voxel;
 struct Chunk {
+
+	// Chunk specific information
 	Chunk(Point<int> position);
 	Point<int> worldOffset;
 	static const Point<int> chunkSize;
-	LinkedList_Line<Voxel> voxels;
+
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	// Voxel & Triangle storage
+	// TODO: do we really need voxelBuffer/triangleBuffer?
+	// all of this is stored in VBO
+	// vector<Voxel*> voxelBuffer;
+	vector<Triangle> triangleBuffer;
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+	/* Add Triangles
+	 *
+	 * Adding triangles into chunks checks first if the
+	 * triangle fits entirely into the given chunk;
+	 * otherwise it tessellates the triangle across the
+	 * chunk's seam. 
+	 *
+	 * When the triangle needs to be tessellated there are a
+	 * number of different cases in which it can be split
+	 * across the chunk. These cases require a new set of
+	 * vertices to be created along the triangle (ie.
+	 * projected along the edges onto the seam of the chunk)
+	 ***/
+	struct AddTriangleResults {
+		Voxel* projected_p1=0;
+		Voxel* projected_p2=0;
+		Voxel* projected_p1p2=0;
+		Voxel* projected_p1Mid=0;
+		Voxel* projected_p2Mid=0;
+		Voxel* projected_midpoint=0;
+		Voxel* outer_midpoint=0;
+		unsigned short addedTriangle=0;
+		uchar  addResults=0;
+
+		const static uchar TRIANGLE_ADD_SUCCEEDED           = 0;
+		const static uchar TRIANGLE_ADD_TWOPOINT_ONESIDE    = 1;
+		const static uchar TRIANGLE_ADD_TWOPOINT_TWOSIDE    = 2;
+		const static uchar TRIANGLE_ADD_ONEPOINT_ONESIDE    = 3;
+		const static uchar TRIANGLE_ADD_ONEPOINT_TWOSIDE    = 4;
+		const static uchar TRIANGLE_ADD_FOURPOINT_TWOSIDE   = 5;
+		const static uchar TRIANGLE_ADD_FOURPOINT_THREESIDE = 6;
+	};
+	AddTriangleResults addTriangle(Voxel* p0, Voxel* p1, Voxel* p2);
+	bool isOutsideChunk(Voxel* p);
+	Vertex* getVoxelProjection(Voxel* voxel, Voxel* neighbour, uchar* face);
+	Vertex* projectVertexOntoFace(Vertex* voxel, Vertex* neighbour, uchar face);
+	Vertex* getSeamIntersectionPoint(Vertex* p0, Vertex* p1, Vertex* p2, uchar face);
+	Vertex* getSeamIntersectionPoint(Vertex* p0, Vertex* p1, Vertex* p2, uchar face1, uchar face2);
+	Vertex* lineIntersectTriangle(float line_x, float line_y, float line_z, float line_dx, float line_dy, float line_dz, Vertex* p0, Vertex* p1, Vertex* p2);
+	bool facesMatch(uchar expectedFace1, uchar expectedFace2, uchar face1, uchar face2);
+
+	const static uchar FACE_FRONT   = 0;
+	const static uchar FACE_BACK    = 1;
+	const static uchar FACE_LEFT    = 2;
+	const static uchar FACE_RIGHT   = 3;
+	const static uchar FACE_TOP     = 4;
+	const static uchar FACE_BOTTOM  = 5;
+
+
+	void construct();
+	void render(float r, float g, float b);
+	GLuint vbo, vao, elementBuffer;
+
 
 	// HexTree
-	Chunk* above    = 0;
-	Chunk* below    = 0;
-	Chunk* left     = 0;
-	Chunk* right    = 0;
-	Chunk* infront  = 0;
-	Chunk* behind   = 0;
+	Chunk* above     = 0;
+	Chunk* below     = 0;
+	Chunk* left      = 0;
+	Chunk* right     = 0;
+	Chunk* infront   = 0;
+	Chunk* behind    = 0;
+	Terrain* terrain = 0;
+};
+struct Voxel {
+	Voxel() : vertexIndex(0), chunk(0) { }
+	bool operator ==(Voxel& voxel) { return voxel.vertexIndex == vertexIndex; }
+	Array_Resizable<Voxel*> neighbours;
+	ushort vertexIndex; // index of vertex in associated vertexBuffer
+	Chunk* chunk;
+	Terrain* terrain;
+	float getX() { return (terrain->vertexBuffer[vertexIndex].v_x); }
+	float getY() { return (terrain->vertexBuffer[vertexIndex].v_y); }
+	float getZ() { return (terrain->vertexBuffer[vertexIndex].v_z); }
 };
 
 #endif

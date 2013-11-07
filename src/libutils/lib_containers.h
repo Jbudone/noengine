@@ -11,7 +11,7 @@
  *  - ...
  *
  **/
-
+#include <stdlib.h>
 #define CHAR0 48 // ASCII dec code for 0
 
 template<class T1, class T2, class T3>
@@ -19,6 +19,55 @@ struct Triple {
 	Triple() { }
 	Triple(T1 t1, T2 t2, T3 t3) : t1(t1), t2(t2), t3(t3) { }
 	T1 t1; T2 t2; T3 t3;
+};
+
+/* Array_Resizable
+ *
+ * An array which is resized when an item is added or
+ * removed. The array is an unordered set
+ **/
+template<class T>
+struct Array_Resizable {
+	Array_Resizable() : elements(0), size(0) { }
+	void add(T element) {
+		T* new_elements = (T*)malloc( sizeof(T) * size+1 );
+		int i = 0;
+		for ( ; i < size; ++i ) {
+			new_elements[i] = elements[i];
+		}
+		new_elements[i] = element;
+		++size;
+
+		delete elements;
+		elements = new_elements;
+	}
+	bool has(T element) {
+		int i = 0;
+		for ( ; i < size; ++i ) {
+			if ( elements[i] == element ) return true;
+		}
+		return false;
+	}
+	void remove(T element) {
+		if ( size == 0 ) return;
+		T* new_elements = (T*)malloc( sizeof(T) * size-1 );
+		int j = 0, k = 0;
+		for ( ; j < size, k < size-1; ++j ) {
+			if ( elements[j] == element ) continue;
+			new_elements[k] = elements[j];
+			++k;
+		}
+		--size;
+
+		delete elements;
+		elements = new_elements;
+	}
+	T& operator[](size_t index) {
+		return elements[index];
+	}
+
+	T* elements;
+	unsigned short size;
 };
 
 

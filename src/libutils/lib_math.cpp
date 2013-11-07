@@ -50,7 +50,7 @@ float randomFloat(int x, int y) {
 	// return randomFloat(n);
     // n = pow((n<<13), n);
 	n = (n<<13) ^ n;
-    return ( 1.0 - ( (n * (n * n * 15731 + 789221) + 1376312589) & 0x7fffffff) / 1073741824.0);  
+    return ( 1.0 - (float)( (n * (n * n * 15731 + 789221) + 1376312589) & 0x7fffffff) / (float)1073741824.0);  
 }
 
 float interpolateLinear(float v0, float v1, float x) {

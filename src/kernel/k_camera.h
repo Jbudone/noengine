@@ -38,8 +38,8 @@ class Camera {
 public:
 	Camera() {}
 
-	glm::vec3 position = glm::vec3(  0.0f, 0.0f, -5.0f );
-	glm::vec3 rotation = glm::vec3( 0.0f, 0.0f, 3.15f );
+	glm::vec3 position = glm::vec3(  -500.0f, 5.0f, -500.0f );
+	glm::vec3 rotation = glm::vec3( 1.0f, 0.0f, 3.15f );
 
 	glm::mat4 perspective;
 	glm::mat4 view;
@@ -58,7 +58,7 @@ public:
 	float height = WIN_HEIGHT;
 
 	float rotation_speed = 0.0010f;
-	float move_speed     = 0.001f;
+	float move_speed     = 999999999999.000f;
 };
 
 extern Camera camera;

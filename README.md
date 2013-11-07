@@ -226,6 +226,21 @@ Game Thoughts
 				You revive at your soulbound spot (a kingdome or some owned area) after X time; this
 				place gets an automated tax from all gold you earn, and a portion of what you lose
 				upon dying
+
+				Go to HELL: have to do some annoying haunting/exorcism to get back out of
+				hell.. people can ATTACK you if they aren't friends with you (friendship
+				can grow temporarily quickly a little bit when grouped, BUT can die down;
+				can grow over time with people); guards guard ALL places (although less
+				guards as you travel out -- travelling guards) and will attack people, or
+				hold them back and drag them to jail or force a fine (or otherwise be
+				punished) OR make them slaves (if they don't follow certain daily tasks
+				then they will be attacked).. there's certain ways to get between towns
+				(both legal and illegal) which are heavily guarded and mostly safe to
+				travel between towns. There is also trickery in castles (lies, stealing
+				from you; steal from you over night? attack you? 
+				-- Come back as a werewolf and have to sneak your way into the castle and
+				to church to get it taken off IF you're on good terms with your god)
+
 	> Combat -- able to climb and take hold of parts of enemy (run ontop and flip over while
 				pulling their arm or something); able to interact w/ enemy body; able to push around
 				enemy body (quaternion rotations); world objects interact with people & people with
