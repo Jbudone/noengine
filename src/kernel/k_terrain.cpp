@@ -264,7 +264,7 @@ Chunk::Chunk(Point<int> position) {
 
 
 // ============================================== //
-vector<TriangleNode*> Terrain::addTriangleIntoChunk(Chunk* chunk, Voxel* p0, Voxel* p1, Voxel* p2) {
+vector<TriangleNode*> Terrain::addTriangleIntoChunk(Chunk* chunk, Voxel* p0, Voxel* p1, Voxel* p2, unsigned long p0_outer = -1, unsigned long p1_outer = -1, unsigned long p2_outer = -1) {
 
 	/* Find corresponding voxel
 	 * We can only guarantee a matching chunk for one voxel; in the case that each voxel
@@ -358,12 +358,19 @@ def AddAABB(x,y,z,size):
 		addedTriangle->triangleID = addedResults.addedTriangle;
 		addedTriangles.push_back( addedTriangle );
 
+		ushort edge_p0 = (p0_outer>=0?p0_outer:chunk->triangleBuffer[addedResults.addedTriangle].p0);
+		ushort edge_p1 = (p1_outer>=0?p1_outer:chunk->triangleBuffer[addedResults.addedTriangle].p1);
+		ushort edge_p2 = (p2_outer>=0?p2_outer:chunk->triangleBuffer[addedResults.addedTriangle].p2);
+		edgeTree.addTriangle( chunk, addedResults.addedTriangle, edge_p0, edge_p1 );
+		edgeTree.addTriangle( chunk, addedResults.addedTriangle, edge_p1, edge_p2 );
+		edgeTree.addTriangle( chunk, addedResults.addedTriangle, edge_p2, edge_p0 );
+
 	} else if ( addedResults.addResults ==
 			Chunk::AddTriangleResults::TRIANGLE_ADD_TWOPOINT_ONESIDE ) {
 
 		// 2 outside points projected onto 1 face
-		addedTriangles = mergeT(addedTriangles, addTriangleIntoChunk( chunk, p0, addedResults.projected_p1, addedResults.projected_p2 ));
-		addedTriangles = mergeT(addedTriangles, addTriangleIntoChunk( chunk, p1, addedResults.projected_midpoint, addedResults.projected_p1 ));
+		addedTriangles = mergeT(addedTriangles, addTriangleIntoChunk( chunk, p0, addedResults.projected_p1, addedResults.projected_p2, p0, p0, p1, p2 ));
+		addedTriangles = mergeT(addedTriangles, addTriangleIntoChunk( chunk, p1, addedResults.projected_midpoint, addedResults.projected_p1, p0, p1, -1 ));
 		addedTriangles = mergeT(addedTriangles, addTriangleIntoChunk( chunk, addedResults.projected_midpoint, addedResults.projected_p2, addedResults.projected_p1 ));
 		addedTriangles = mergeT(addedTriangles, addTriangleIntoChunk( chunk, p2, addedResults.projected_p2, addedResults.projected_midpoint ));
 
@@ -598,6 +605,7 @@ EdgeTri* addTriangle(Tri* tri, ushort p0, ushort p1) {
 		edge = new EdgeTriNode();
 		edge->p0 = p0;
 		edge->p1 = p1;
+		nodePoint->edgeNode = edge;
 	}
 
 
@@ -622,9 +630,61 @@ EdgeTri* addTriangle(Tri* tri, ushort p0, ushort p1) {
 			nodesNeedSubdividing.push_back( edge );
 		}
 	// TODO: neighbour two tris if their edges span this entire edge
-	// } else if ( edge->triangles_p0p1.size() == 1 && edge->triangles_p1p0.size() == 1 ) {
-	// 	// neighbour these tris if their edge spans across the entire edge
-	// 	if ( edge->triangles_p0p1[0]
+		} else if ( edge->triangles_p0p1.size() == 1 && edge->triangles_p1p0.size() == 1 ) {
+			// neighbour these tris if their edge spans across the entire edge
+			Tri* leftTri  = edge->triangles_p0p1[0];
+			Tri* rightTri = edge->triangles_p1p0[0];
+
+			if ( (leftTri->p0 == endPoint && rightTri->p0 == endPoint && ( leftTri->p1 != rightTri->p2 )) ||
+				 (leftTri->p0 == endPoint && rightTri->p1 == endPoint && ( leftTri->p1 != rightTri->p0 )) ||
+				 (leftTri->p0 == endPoint && rightTri->p2 == endPoint && ( leftTri->p1 != rightTri->p1 )) ||
+
+				 (leftTri->p1 == endPoint && rightTri->p0 == endPoint && ( leftTri->p2 != rightTri->p2 )) ||
+				 (leftTri->p1 == endPoint && rightTri->p1 == endPoint && ( leftTri->p2 != rightTri->p0 )) ||
+				 (leftTri->p1 == endPoint && rightTri->p2 == endPoint && ( leftTri->p2 != rightTri->p1 )) ||
+
+				 (leftTri->p2 == endPoint && rightTri->p0 == endPoint && ( leftTri->p0 != rightTri->p2 )) ||
+				 (leftTri->p2 == endPoint && rightTri->p1 == endPoint && ( leftTri->p0 != rightTri->p0 )) ||
+				 (leftTri->p2 == endPoint && rightTri->p2 == endPoint && ( leftTri->p0 != rightTri->p1 )) ) {
+
+				bool foundEdgeInUpdateList = false;
+				for ( auto edgeNode : nodesNeedSubdividing ) {
+					if ( edgeNode == edge ) {
+						foundEdgeInUpdateList = true;
+						break;
+					}
+				}
+				nodesNeedSubdividing.push_back( edge );
+			}
+
+
+
+			if ( tri->p0 == endPoint ) {
+				associatedLeftTri = tri;
+				leftTri_p0 = tri->p0;
+				leftTri_p1 = tri->p1;
+				leftTri_p2 = tri->p2;
+				left_p1_p  = 1;
+				leftTriNeighbour = tri->neighbour_p0p1;
+				break;
+			} else if ( tri->p1 == endPoint ) {
+				associatedLeftTri = tri;
+				leftTri_p0 = tri->p1;
+				leftTri_p1 = tri->p2;
+				leftTri_p2 = tri->p0;
+				left_p1_p  = 2;
+				leftTriNeighbour = tri->neighbour_p1p2;
+				break;
+			} else if ( tri->p2 == endPoint ) {
+				associatedLeftTri = tri;
+				leftTri_p0 = tri->p2;
+				leftTri_p1 = tri->p0;
+				leftTri_p2 = tri->p1;
+				left_p1_p  = 0;
+				leftTriNeighbour = tri->neighbour_p2p0;
+				break;
+			}
+		}
 	}
 
 }
@@ -847,6 +907,126 @@ void EdgeTriTree::EdgeTriNode::subdivideTriangles() {
 	} 
 
 	// TODO: replace old edge with subdivided edges
+	for ( auto edge : edgeSubdivisions ) {
+		ushort p0 = edge->p0,
+			   p1 = edge->p1;
+
+		// find point node
+		PointNode* startPoint = cachedPoint;
+		PointNode* nodePoint = 0;
+		while ( startPoint ) {
+			if ( startPoint->p0 == p0 ) {
+				nodePoint = startPoint;
+				break;
+			} else if ( startPoint->p0 < p0 ) {
+				if ( startPoint->rightPoint && startPoint->rightPoint->p0 > p0 ) {
+					// node point between these nodes
+					nodePoint = new PointNode();
+					nodePoint->rightPoint = startPoint->rightPoint;
+					nodePoint->rightPoint->leftPoint = nodePoint;
+					nodePoint->leftPoint = startPoint;
+					startPoint->rightPoint = nodePoint;
+					nodePoint->p0 = p0;
+					break;
+				}
+
+				if ( startPoint->rightPoint ) {
+					startPoint = startPoint->rightPoint;
+				} else {
+					// node point on the end
+					nodePoint = new PointNode();
+					nodePoint->leftPoint = startPoint;
+					startPoint->rightPoint = nodePoint;
+					nodePoint->p0 = p0;
+					break;
+				}
+			} else {
+				if ( startPoint->leftPoint && startPoint->leftPoint->p0 < p0 ) {
+					// node point between these nodes
+					nodePoint = new PointNode();
+					nodePoint->leftPoint = startPoint->leftPoint;
+					nodePoint->leftPoint->rightPoint = nodePoint;
+					nodePoint->rightPoint = startPoint;
+					startPoint->leftPoint = nodePoint;
+					nodePoint->p0 = p0;
+					break;
+				}
+
+				if ( startPoint->leftPoint ) {
+					startPoint = startPoint->leftPoint;
+				} else {
+					// node point on the end
+					nodePoint = new PointNode();
+					nodePoint->rightPoint = startPoint;
+					startPoint->leftPoint = nodePoint;
+					nodePoint->p0 = p0;
+					break;
+				}
+			}
+		}
+
+		// empty list
+		if ( !nodePoint ) {
+			nodePoint = new PointNode();
+			nodePoint->p0 = p0;
+			cachedPoint = nodePoint;
+		}
+		cachedPoint = nodePoint;
+
+
+		// find edge adjacent to this point
+		EdgeTriNode* startEdge = nodePoint->edgeNode;
+		while ( startEdge ) {
+			if ( startEdge->p1 == p1 ) {
+				assert(false); // this edge should not yet exist??
+				break;
+			} else if ( startEdge->p1 < p1 ) {
+				if ( startEdge->rightNode && startEdge->rightNode->p1 > p1 ) {
+					// node edge between these nodes
+					edge->rightNode = startEdge->rightNode;
+					edge->rightNode->leftNode = edge;
+					edge->leftNode = startEdge;
+					startEdge->rightNode = edge;
+					break;
+				}
+
+				if ( startEdge->rightNode ) {
+					startEdge = startEdge->rightNode;
+				} else {
+					// node edge on the end
+					edge->leftNode = startEdge;
+					startEdge->rightNode = edge;
+					break;
+				}
+			} else {
+				if ( startEdge->leftNode && startEdge->leftNode->p1 < p1 ) {
+					// node edge between these nodes
+					edge->leftNode = startEdge->leftNode;
+					edge->leftNode->rightNode = edge;
+					edge->rightNode = startEdge;
+					startEdge->leftNode = edge;
+					break;
+				}
+
+				if ( startEdge->leftNode ) {
+					startEdge = startEdge->leftNode;
+				} else {
+					// node edge on the end
+					edge->rightNode = startEdge;
+					startEdge->leftNode = edge;
+					break;
+				}
+
+			}
+		}
+
+		// empty list
+		if ( !edge ) {
+			nodePoint->edgeNode = edge;
+		}
+
+	}
+
 }
 // ============================================== //
 

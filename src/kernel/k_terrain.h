@@ -296,7 +296,7 @@ public:
 	 ***/
 	void generateTerrain(); // create voxel tree and randomize voxel heights (interpolated between neighbour points)
 	Chunk* createChunks(Point<int> point, Chunk* below, Chunk* behind);
-	vector<TriangleNode*> addTriangleIntoChunk(Chunk* chunk, Voxel* p0, Voxel* p1, Voxel* p2);
+	vector<TriangleNode*> addTriangleIntoChunk(Chunk* chunk, Voxel* p0, Voxel* p1, Voxel* p2, long p0_outer, long p1_outer, long p2_outer);
 	vector<TriangleNode*> mergeT(vector<TriangleNode*>,vector<TriangleNode*>);
 };
 
@@ -391,6 +391,7 @@ struct EdgeTriTree {
 	PointNode* cachedPoint = 0; // cached ptr to last accessed point node
 	vector<EdgeTriNode*> nodesNeedSubdividing;
 	void addTriangle(Chunk* chunk, ushort triIndex);
+	void addTriangle(Chunk* chunk, ushort triIndex, ushort p0, ushort p1);
 	// TODO: linkedList of linkedList of edges; sort outer
 	// and inner lists by ushort index. addTriangle adds to
 	// linkedList by switching p0/p1 to make p0<p1; if
