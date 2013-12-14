@@ -28,12 +28,12 @@ t_error Logger::LogSystem::shutdown() {
 
 t_error Logger::LogSystem::printLog(const string& msg) {
 	cout << msg.c_str();
-	// printf( msg.c_str() );
 	return 0;
 }
 
 t_error Logger::LogSystem::writeLog(const string& msg) {
 	(*Logger::LogSystem::logFile) << msg.c_str();
+	(*Logger::LogSystem::logFile) << 1 << std::flush;
 	return 0;
 }
 

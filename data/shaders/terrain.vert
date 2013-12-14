@@ -11,6 +11,8 @@ void main()
 	dotn = lDotN;
 	out_color = in_color;
 
-	gl_Position = vec4(in_Position,1.0) * MVP;
+	vec3 tmp_Position = in_Position;
+	tmp_Position.y *= -1;
+	gl_Position = vec4(tmp_Position,1.0) * MVP;
 }
 

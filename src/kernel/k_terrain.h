@@ -220,6 +220,34 @@
  *  - shading & blending techniques (for various terrain
  *    situations)
  *  - create physics
+ *
+ *
+ *
+ *  *IDEAS*
+ *  	- sweep hull to sort/store/cache chunks; re-create
+ *  	those through delaunay(use polygons to create then
+ *  	make tris from that..)(use int-level float
+ *  	of initial send); then send next send of
+ *  	float level of verts, stored in SAME order
+ *  	(no need to send
+ *  	  indexing then or specifying the position for each
+ *  	  data (eg. color) val.. and use base environment
+ *  	  details like base textures etc. to re-create
+ *  	  approximation intially), then stream other details
+ *  	  (geometry shaders, tessellation, bumpmaps,
+ *  	  etc.) individually for further
+ *  	  rebuilding the terrain and improving it..
+ *  	  You can scale those send rates and quality
+ *  	  of sends through priority & max rate
+ *  	  levels offered by thread.. Those scales are
+ *  	  through an interface that can apply to all
+ *  	  threaded objects to manage resources and time.
+ *  	  Stream various level of qualities at various
+ *  	  distances for variously grouped arrays of chunks
+ *  	  at various quality levels..you can profile or
+ *  	  dynamically adapt to the best levels for
+ *  	  efficiency
+ *		
  **/
 
 
@@ -254,30 +282,35 @@ class Vertex;
 struct TerrainSelection;
 struct Triangle;
 struct TriangleNode;
+struct EdgeTriTree;
+struct Tri;
 class Terrain {
 	// GLuint vao, vbo; // TODO: remove these?
 
+public:
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	// Terrain map specifications
-	const uint width  = 800,
-		  	   depth  = 800,
-			   height = 5000; // maximum height
+	static const uint width,//  = 800,
+		  	   depth ,// = 800,
+			   height;// = 5000; // maximum height
 	double dbgID = 0; // TODO: used for debugging terrain
 					  // 		model, remove this or
 					  // 		implement properly
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-public:
 
 	Terrain(GLuint gl); // TODO: how to handle shaders?
 	~Terrain();
 	void clearTerrain();
 
-	TerrainSelection* terrainPick(glm::vec3 position, glm::vec3 direction);
+	TerrainSelection* selection;
+	Tri* terrainPick(glm::vec3 position, glm::vec3 direction);
+	void selectTri(Tri*);
 
 	Chunk* headChunk = 0;
 	vector<Vertex> vertexBuffer; // all vertices in the terrain
 	Voxel* voxelTree; // voxel tree of terrain
 	vector<Triangle> debugTriangles; // TODO: remove or implement debug mode properly
+	EdgeTriTree* edgeTree;
 
 
 	/* Rendering
@@ -296,7 +329,7 @@ public:
 	 ***/
 	void generateTerrain(); // create voxel tree and randomize voxel heights (interpolated between neighbour points)
 	Chunk* createChunks(Point<int> point, Chunk* below, Chunk* behind);
-	vector<TriangleNode*> addTriangleIntoChunk(Chunk* chunk, Voxel* p0, Voxel* p1, Voxel* p2, long p0_outer, long p1_outer, long p2_outer);
+	vector<TriangleNode*> addTriangleIntoChunk(Chunk* chunk, Voxel* p0, Voxel* p1, Voxel* p2, bool suppressFailFix = false);
 	vector<TriangleNode*> mergeT(vector<TriangleNode*>,vector<TriangleNode*>);
 };
 
@@ -312,7 +345,19 @@ struct Vertex {
 	Vertex() { }
 	Vertex(float v_x, float v_y, float v_z) : v_x(v_x), v_y(v_y), v_z(v_z) { }
 	float v_x, v_y, v_z;
-	bool operator ==(Vertex& vertex) { return (v_x==vertex.v_x&&v_y==vertex.v_y&&v_z==vertex.v_z); }
+	bool operator ==(Vertex& vertex) {
+		int rpt = 1; // rounding point
+		return (v_x*rpt == vertex.v_x*rpt &&
+				v_y*rpt == vertex.v_y*rpt &&
+				v_z*rpt == vertex.v_z*rpt);
+	}
+	bool between(Vertex& v1, Vertex& v2) {
+		return (
+			((v_x>=v1.v_x && v_x<=v2.v_x)||(v_x>=v2.v_x && v_x<=v1.v_x)) &&
+			((v_y>=v1.v_y && v_y<=v2.v_y)||(v_y>=v2.v_y && v_y<=v1.v_y)) &&
+			((v_z>=v1.v_z && v_z<=v2.v_z)||(v_z>=v2.v_z && v_z<=v1.v_z))
+		);
+	}
 };
 
 struct Triangle {
@@ -333,31 +378,272 @@ struct TriangleNode {
 	TriangleNode* neighbour_p1p2;
 };
 
+
+
+/* Chunk
+ *
+ * The 3d multi-level equivalent of a patch
+ * Chunks store a set of voxels surrounded by an AABB;
+ * chunks contain voxels and triangles (each are stored in
+ * contiguous memory and used for VBO's). Triangles are
+ * stored as a Triple of indices to the stored voxels.
+ * Chunks are apart of a HexTree where each face may be
+ * connected to another Chunk. Each chunk contains a list of
+ * portals (ptr to portal table) of portals that its
+ * connected to.
+ *
+ * 		Voxel Storage
+ *	Voxels are stored in an unordered resizable array
+ *
+ * 		Triangle Storage
+ * 	Triangles contain 3 indices points; the triangles are
+ * 	stored in a particular Shader object in LOD[0], as well
+ * 	as any further LOD objects in which the triangle is
+ * 	still necessary. 
+ *
+ * 		Adding Triangles
+ * 	When triangles are added, some of the voxels may already
+ * 	exist in the voxel container; if so then we simply use
+ * 	that voxel as the index for that vertex of this
+ * 	triangle. If ALL voxels are already inside the voxel
+ * 	container then simply skip adding this triangle.
+ * 	Sometimes a triangle may contain voxels which are
+ * 	outside of the chunk; in this case those voxels are
+ * 	projected onto the chunk and the projections are used
+ * 	instead. These projections are returned to the caller so
+ * 	that the caller may continuously add the triangle as
+ * 	multiple parts to other chunks. These split triangles
+ * 	are given a metadata value which states that its
+ * 	currently shared across chunks, which helps in stitching
+ * 	the seams across chunks after changes to the terrain
+ *
+ * 			 |*   |
+ * 		|----|----|
+ * 		|   *|*   |
+ * 		|    |    |
+ * 		|----|----|
+ * 	
+ *
+ *
+ *
+ * 		Multiple Portals
+ * 	A chunk contains some arbitrary set of voxels within a
+ * 	given AABB area. Some of those voxels may be the ground
+ * 	in one portal while the other portals could be the
+ * 	ceiling of the portal immediately below. For this we
+ * 	need to assume that chunks could be inside multiple
+ * 	portals
+ * 	TODO: perhaps for efficiency, a packed bitfield
+ * 	containing indices to each portal the chunk belongs to;
+ * 	x bytes w/ max 64 portals == (x*8/6) = y portals per
+ * 	chunk
+ *
+ *
+ **/
+
+struct Voxel {
+	Voxel() : vertexIndex(0), chunk(0) { }
+	bool operator ==(Voxel& voxel) { return voxel.vertexIndex == vertexIndex; }
+	Array_Resizable<Voxel*> neighbours;
+	ushort vertexIndex; // index of vertex in associated vertexBuffer
+	Chunk* chunk;
+	Terrain* terrain;
+	float getX() { return (terrain->vertexBuffer[vertexIndex].v_x); }
+	float getY() { return (terrain->vertexBuffer[vertexIndex].v_y); }
+	float getZ() { return (terrain->vertexBuffer[vertexIndex].v_z); }
+};
+struct Chunk {
+
+	// Chunk specific information
+	Chunk(Point<int> position);
+	Point<int> worldOffset;
+	static const Point<int> chunkSize;
+
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	// Voxel & Triangle storage
+	// TODO: do we really need voxelBuffer/triangleBuffer?
+	// all of this is stored in VBO
+	// vector<Voxel*> voxelBuffer;
+	vector<Triangle> triangleBuffer;
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+	/* Add Triangles
+	 *
+	 * Adding triangles into chunks checks first if the
+	 * triangle fits entirely into the given chunk;
+	 * otherwise it tessellates the triangle across the
+	 * chunk's seam. 
+	 *
+	 * When the triangle needs to be tessellated there are a
+	 * number of different cases in which it can be split
+	 * across the chunk. These cases require a new set of
+	 * vertices to be created along the triangle (ie.
+	 * projected along the edges onto the seam of the chunk)
+	 ***/
+	struct AddTriangleResults {
+		Voxel* projected_p1=0;
+		Voxel* projected_p2=0;
+		Voxel* projected_p1p2=0;
+		Voxel* projected_p1Mid=0;
+		Voxel* projected_p2Mid=0;
+		Voxel* projected_midpoint=0;
+		Voxel* outer_midpoint=0;
+		unsigned short addedTriangle=0;
+		uchar  addResults=0;
+
+		const static uchar TRIANGLE_ADD_SUCCEEDED           = 0;
+		const static uchar TRIANGLE_ADD_TWOPOINT_ONESIDE    = 1;
+		const static uchar TRIANGLE_ADD_TWOPOINT_TWOSIDE    = 2;
+		const static uchar TRIANGLE_ADD_ONEPOINT_ONESIDE    = 3;
+		const static uchar TRIANGLE_ADD_ONEPOINT_TWOSIDE    = 4;
+		const static uchar TRIANGLE_ADD_FOURPOINT_TWOSIDE   = 5;
+		const static uchar TRIANGLE_ADD_FOURPOINT_THREESIDE = 6;
+		const static uchar TRIANGLE_ADD_FAILED              = 7;
+		const static uchar TRIANGLE_ADD_TWOPOINT_ONESIDE_NOMID = 8;
+		const static uchar TRIANGLE_ADD_ONEPOINT_ONESIDE_ONEPROJ = 9;
+	};
+	AddTriangleResults addTriangle(Voxel* p0, Voxel* p1, Voxel* p2);
+	bool isOutsideChunk(Voxel* p);
+	Vertex* getVoxelProjection(Voxel* voxel, Voxel* neighbour, uchar* face);
+	Vertex* projectVertexOntoFace(Vertex* voxel, Vertex* neighbour, uchar face);
+	Vertex* getSeamIntersectionPoint(Vertex* p0, Vertex* p1, Vertex* p2, uchar face);
+	Vertex* getSeamIntersectionPoint(Vertex* p0, Vertex* p1, Vertex* p2, uchar face1, uchar face2);
+	Vertex* lineIntersectTriangle(float line_x, float line_y, float line_z, float line_dx, float line_dy, float line_dz, Vertex* p0, Vertex* p1, Vertex* p2);
+	bool facesMatch(uchar expectedFace1, uchar expectedFace2, uchar face1, uchar face2);
+
+	const static uchar FACE_FRONT   = 0;
+	const static uchar FACE_BACK    = 1;
+	const static uchar FACE_LEFT    = 2;
+	const static uchar FACE_RIGHT   = 3;
+	const static uchar FACE_TOP     = 4;
+	const static uchar FACE_BOTTOM  = 5;
+
+
+	void construct();
+	void render(float r, float g, float b);
+	GLuint vbo, vao, elementBuffer;
+
+
+	// HexTree
+	Chunk* above     = 0;
+	Chunk* below     = 0;
+	Chunk* left      = 0;
+	Chunk* right     = 0;
+	Chunk* infront   = 0;
+	Chunk* behind    = 0;
+	Terrain* terrain = 0;
+};
+
+struct Tri {
+	Tri(Chunk* chunk, ushort triIndex) : chunk(chunk), triIndex(triIndex) {
+		p0 = chunk->triangleBuffer[triIndex].p0;
+		p1 = chunk->triangleBuffer[triIndex].p1;
+		p2 = chunk->triangleBuffer[triIndex].p2;
+	}
+	ushort triIndex;
+	Chunk* chunk = 0;
+	ushort p0, p1, p2;
+
+	ushort getOddPoint(ushort p0, ushort p1);
+	static bool oneOrTheOther(ushort p0, ushort p1, ushort match_p0, ushort match_p1);
+	Tri** getNeighbourOnEdge(ushort p0, ushort p1);
+	void reshapeTriOnEdge(ushort p0, ushort p1, ushort p0_new, ushort p1_new);
+
+	Tri* neighbour_p0p1 = 0;
+	Tri* neighbour_p1p2 = 0;
+	Tri* neighbour_p2p0 = 0;
+};
 struct EdgeTriTree {
 
-	struct Tri {
-		Tri(Chunk* chunk, ushort triIndex) : chunk(chunk), triIndex(triIndex) {
-			p0 = chunk->triangleBuffer[triIndex].p0;
-			p1 = chunk->triangleBuffer[triIndex].p1;
-			p2 = chunk->triangleBuffer[triIndex].p2;
-		}
-		ushort triIndex;
-		Chunk* chunk;
-		ushort p0, p1, p2;
+	static Terrain* terrain;
+	EdgeTriTree(Terrain* terrain);
+	~EdgeTriTree();
 
-		Tri* neighbour_p0p1 = 0;
-		Tri* neighbour_p1p2 = 0;
-		Tri* neighbour_p2p0 = 0;
+	/* Edge Chunk
+	 *
+	 * An AABB chunk storing EdgeTriNode's; note that edges
+	 * can span across more than one chunk, and hence chunks
+	 * store pointers to Edges which may be shared by
+	 * multiple chunks
+	 *
+	 ***/
+	struct EdgeTriNode;
+	struct EdgeChunk {
+
+		EdgeChunk(Point<int> position);
+		Point<int> worldOffset;
+		static const Point<int> chunkSize;
+		vector<EdgeTriNode*> edges;
+		static bool vectorContainsEdgeChunk(vector<EdgeChunk*>* chunks, EdgeChunk* chunk) {
+			for ( auto e_chunk : (*chunks) ) {
+				if ( e_chunk == chunk ) return true;
+			}
+			return false;
+		}
+
+		static void addMissingEdgeChunks(vector<EdgeChunk*>* chunks, EdgeChunk* chunk, ushort vertexIndex, Terrain* terrain ) {
+			
+			float x = terrain->vertexBuffer[vertexIndex].v_x;
+			float y = terrain->vertexBuffer[vertexIndex].v_y;
+			float z = terrain->vertexBuffer[vertexIndex].v_z;
+			if ( x <= chunk->worldOffset.x && chunk->left && !EdgeChunk::vectorContainsEdgeChunk( chunks, chunk->left ) ) chunks->push_back( chunk->left );
+			if ( y <= chunk->worldOffset.y && chunk->below && !EdgeChunk::vectorContainsEdgeChunk( chunks, chunk->below ) ) chunks->push_back( chunk->below );
+			if ( z <= chunk->worldOffset.z && chunk->behind && !EdgeChunk::vectorContainsEdgeChunk( chunks, chunk->behind ) ) chunks->push_back( chunk->behind );
+
+			if ( x >= chunk->worldOffset.x + chunk->chunkSize.x && chunk->right && !EdgeChunk::vectorContainsEdgeChunk( chunks, chunk->right ) ) chunks->push_back( chunk->right );
+			if ( y >= chunk->worldOffset.z + chunk->chunkSize.y && chunk->above && !EdgeChunk::vectorContainsEdgeChunk( chunks, chunk->above ) ) chunks->push_back( chunk->above );
+			if ( z >= chunk->worldOffset.z + chunk->chunkSize.z && chunk->infront && !EdgeChunk::vectorContainsEdgeChunk( chunks, chunk->infront ) ) chunks->push_back( chunk->infront );
+		}
+
+
+		// HexTree
+		EdgeChunk* above     = 0;
+		EdgeChunk* below     = 0;
+		EdgeChunk* left      = 0;
+		EdgeChunk* right     = 0;
+		EdgeChunk* infront   = 0;
+		EdgeChunk* behind    = 0;
+
+		const static uchar FACE_FRONT   = 0;
+		const static uchar FACE_BACK    = 1;
+		const static uchar FACE_LEFT    = 2;
+		const static uchar FACE_RIGHT   = 3;
+		const static uchar FACE_TOP     = 4;
+		const static uchar FACE_BOTTOM  = 5;
+
+		float edgeHitPoint(Vertex p0, float dx, float dy, float dz, uchar face);
+		bool pointInFace(Vertex hitpoint, uchar face);
 	};
+	EdgeChunk* headChunk = 0;
+	EdgeChunk* createChunks(Point<int> position, EdgeChunk* below, EdgeChunk* behind);
+
 	struct EdgeTriNode {
 		ushort p0, p1; // edge
-		vector<Tri*> triangles_p0p1; // triangles on p0p1 side
-		vector<Tri*> triangles_p1p0; // triangles on p1p0 side
 
-		EdgeTriNode* leftNode  = 0;
-		EdgeTriNode* rightNode = 0;
+		/* Get Containers
+		 * 
+		 * A point is inside the container if it is >=
+		 * offset but < offset+size; hence [x0,x1)
+		 * NOTE: It is important to make a distinction
+		 * between which chunk a point belongs to, since a
+		 * point is only allowed to belong to ONE chunk
+		 */
+		static vector<EdgeChunk*> getContainers(ushort p0, ushort p1);
+		static vector<EdgeChunk*> getContainer(ushort p0);
+		vector<EdgeChunk*> getContainers();
+		Tri* triangle_p0p1 = 0; // triangle on p0p1 side
+		Tri* triangle_p1p0 = 0; // triangle on p1p0 side
 
-		void subdivideTriangles(); // subdivide the edge and re-neighbour the tri's
+		vector<EdgeTriNode*> p0_edges;
+		vector<EdgeTriNode*> p1_edges;
+
+		// vector<Tri*> triangles_p0p1; // triangles on p0p1 side
+		// vector<Tri*> triangles_p1p0; // triangles on p1p0 side
+
+		// EdgeTriNode* leftNode  = 0;
+		// EdgeTriNode* rightNode = 0;
+
+		// void subdivideTriangles(); // subdivide the edge and re-neighbour the tri's
 	};
 
 	/* Edge List
@@ -380,16 +666,18 @@ struct EdgeTriTree {
 	 * quater-way point, etc.)
 	 *
 	 ***/
+	/*
 	struct PointNode {
 		ushort p0;
 		EdgeTriNode* edgeNode = 0;
 		PointNode* leftPoint  = 0;
 		PointNode* rightPoint = 0;
 	};
+	*/
 
 
-	PointNode* cachedPoint = 0; // cached ptr to last accessed point node
-	vector<EdgeTriNode*> nodesNeedSubdividing;
+	// PointNode* cachedPoint = 0; // cached ptr to last accessed point node
+	// vector<EdgeTriNode*> nodesNeedSubdividing;
 	void addTriangle(Chunk* chunk, ushort triIndex);
 	void addTriangle(Chunk* chunk, ushort triIndex, ushort p0, ushort p1);
 	// TODO: linkedList of linkedList of edges; sort outer
@@ -399,7 +687,7 @@ struct EdgeTriTree {
 	// lists to last used point and start from there during
 	// add process. NOTE: use vertex index, NOT
 	// chunk-dependent triangle indices
-	EdgeTri* addTriangle(Tri* tri, ushort p0, ushort p1);
+	// EdgeTri* addTriangle(Tri* tri, ushort p0, ushort p1);
 };
 
 template<class T>
@@ -546,165 +834,18 @@ struct LinkedList_Circle {
  *
  **/
 struct TerrainSelection {
-	LinkedList_Line<QuadTree<Voxel>> inner_selection;
-	LinkedList_Circle<QuadTree<Voxel>> inner_neighbours;
-	LinkedList_Circle<QuadTree<Voxel>> mid_neighbours;
-	LinkedList_Circle<QuadTree<Voxel>> outer_neighbours;
-};
-
-
-
-
-
-/* Chunk
- *
- * The 3d multi-level equivalent of a patch
- * Chunks store a set of voxels surrounded by an AABB;
- * chunks contain voxels and triangles (each are stored in
- * contiguous memory and used for VBO's). Triangles are
- * stored as a Triple of indices to the stored voxels.
- * Chunks are apart of a HexTree where each face may be
- * connected to another Chunk. Each chunk contains a list of
- * portals (ptr to portal table) of portals that its
- * connected to.
- *
- * 		Voxel Storage
- *	Voxels are stored in an unordered resizable array
- *
- * 		Triangle Storage
- * 	Triangles contain 3 indices points; the triangles are
- * 	stored in a particular Shader object in LOD[0], as well
- * 	as any further LOD objects in which the triangle is
- * 	still necessary. 
- *
- * 		Adding Triangles
- * 	When triangles are added, some of the voxels may already
- * 	exist in the voxel container; if so then we simply use
- * 	that voxel as the index for that vertex of this
- * 	triangle. If ALL voxels are already inside the voxel
- * 	container then simply skip adding this triangle.
- * 	Sometimes a triangle may contain voxels which are
- * 	outside of the chunk; in this case those voxels are
- * 	projected onto the chunk and the projections are used
- * 	instead. These projections are returned to the caller so
- * 	that the caller may continuously add the triangle as
- * 	multiple parts to other chunks. These split triangles
- * 	are given a metadata value which states that its
- * 	currently shared across chunks, which helps in stitching
- * 	the seams across chunks after changes to the terrain
- *
- * 			 |*   |
- * 		|----|----|
- * 		|   *|*   |
- * 		|    |    |
- * 		|----|----|
- * 	
- *
- *
- *
- * 		Multiple Portals
- * 	A chunk contains some arbitrary set of voxels within a
- * 	given AABB area. Some of those voxels may be the ground
- * 	in one portal while the other portals could be the
- * 	ceiling of the portal immediately below. For this we
- * 	need to assume that chunks could be inside multiple
- * 	portals
- * 	TODO: perhaps for efficiency, a packed bitfield
- * 	containing indices to each portal the chunk belongs to;
- * 	x bytes w/ max 64 portals == (x*8/6) = y portals per
- * 	chunk
- *
- *
- **/
-struct Voxel;
-struct Chunk {
-
-	// Chunk specific information
-	Chunk(Point<int> position);
-	Point<int> worldOffset;
-	static const Point<int> chunkSize;
-
-	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	// Voxel & Triangle storage
-	// TODO: do we really need voxelBuffer/triangleBuffer?
-	// all of this is stored in VBO
-	// vector<Voxel*> voxelBuffer;
-	vector<Triangle> triangleBuffer;
-	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-	/* Add Triangles
-	 *
-	 * Adding triangles into chunks checks first if the
-	 * triangle fits entirely into the given chunk;
-	 * otherwise it tessellates the triangle across the
-	 * chunk's seam. 
-	 *
-	 * When the triangle needs to be tessellated there are a
-	 * number of different cases in which it can be split
-	 * across the chunk. These cases require a new set of
-	 * vertices to be created along the triangle (ie.
-	 * projected along the edges onto the seam of the chunk)
-	 ***/
-	struct AddTriangleResults {
-		Voxel* projected_p1=0;
-		Voxel* projected_p2=0;
-		Voxel* projected_p1p2=0;
-		Voxel* projected_p1Mid=0;
-		Voxel* projected_p2Mid=0;
-		Voxel* projected_midpoint=0;
-		Voxel* outer_midpoint=0;
-		unsigned short addedTriangle=0;
-		uchar  addResults=0;
-
-		const static uchar TRIANGLE_ADD_SUCCEEDED           = 0;
-		const static uchar TRIANGLE_ADD_TWOPOINT_ONESIDE    = 1;
-		const static uchar TRIANGLE_ADD_TWOPOINT_TWOSIDE    = 2;
-		const static uchar TRIANGLE_ADD_ONEPOINT_ONESIDE    = 3;
-		const static uchar TRIANGLE_ADD_ONEPOINT_TWOSIDE    = 4;
-		const static uchar TRIANGLE_ADD_FOURPOINT_TWOSIDE   = 5;
-		const static uchar TRIANGLE_ADD_FOURPOINT_THREESIDE = 6;
+	struct SelectionClass {
+		const static uchar CLASS_HIGHLIGHT = 1;
+		int class_id;
+		vector<Triangle> triangles;
 	};
-	AddTriangleResults addTriangle(Voxel* p0, Voxel* p1, Voxel* p2);
-	bool isOutsideChunk(Voxel* p);
-	Vertex* getVoxelProjection(Voxel* voxel, Voxel* neighbour, uchar* face);
-	Vertex* projectVertexOntoFace(Vertex* voxel, Vertex* neighbour, uchar face);
-	Vertex* getSeamIntersectionPoint(Vertex* p0, Vertex* p1, Vertex* p2, uchar face);
-	Vertex* getSeamIntersectionPoint(Vertex* p0, Vertex* p1, Vertex* p2, uchar face1, uchar face2);
-	Vertex* lineIntersectTriangle(float line_x, float line_y, float line_z, float line_dx, float line_dy, float line_dz, Vertex* p0, Vertex* p1, Vertex* p2);
-	bool facesMatch(uchar expectedFace1, uchar expectedFace2, uchar face1, uchar face2);
-
-	const static uchar FACE_FRONT   = 0;
-	const static uchar FACE_BACK    = 1;
-	const static uchar FACE_LEFT    = 2;
-	const static uchar FACE_RIGHT   = 3;
-	const static uchar FACE_TOP     = 4;
-	const static uchar FACE_BOTTOM  = 5;
-
-
-	void construct();
-	void render(float r, float g, float b);
-	GLuint vbo, vao, elementBuffer;
-
-
-	// HexTree
-	Chunk* above     = 0;
-	Chunk* below     = 0;
-	Chunk* left      = 0;
-	Chunk* right     = 0;
-	Chunk* infront   = 0;
-	Chunk* behind    = 0;
-	Terrain* terrain = 0;
+	vector<SelectionClass*> selections;
+	// LinkedList_Line<QuadTree<Voxel>> inner_selection;
+	// LinkedList_Circle<QuadTree<Voxel>> inner_neighbours;
+	// LinkedList_Circle<QuadTree<Voxel>> mid_neighbours;
+	// LinkedList_Circle<QuadTree<Voxel>> outer_neighbours;
 };
-struct Voxel {
-	Voxel() : vertexIndex(0), chunk(0) { }
-	bool operator ==(Voxel& voxel) { return voxel.vertexIndex == vertexIndex; }
-	Array_Resizable<Voxel*> neighbours;
-	ushort vertexIndex; // index of vertex in associated vertexBuffer
-	Chunk* chunk;
-	Terrain* terrain;
-	float getX() { return (terrain->vertexBuffer[vertexIndex].v_x); }
-	float getY() { return (terrain->vertexBuffer[vertexIndex].v_y); }
-	float getZ() { return (terrain->vertexBuffer[vertexIndex].v_z); }
-};
+
+
 
 #endif

@@ -115,9 +115,7 @@ void World::loadWorld() {
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	// Add terrain
 	RenderGroup* r = shadermgr->renderers.at(2);
-Log("a");
 	terrain = new Terrain( shadermgr->renderers.at(2)->program->programid );
-Log("b");
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
@@ -227,8 +225,8 @@ Entity* World::worldPick(float xw, float yw) {
 		modelRayDir.z /= modelRayDir.w;
 		modelRayDir.w /= modelRayDir.w;
 		modelRayDir = glm::normalize(modelRayDir);
-		Log(str(format("Trying to select.. (%1%,%2%,%3%) + t<%4%,%5%,%6%>")%rayPos.x%rayPos.y%rayPos.z%modelRayDir.x%modelRayDir.y%modelRayDir.z));
-		Log(str(format(" Entity: (%1%,%2%,%3%)")%m->mesh->position.x%m->mesh->position.y%m->mesh->position.z));
+		// Log(str(format("Trying to select.. (%1%,%2%,%3%) + t<%4%,%5%,%6%>")%rayPos.x%rayPos.y%rayPos.z%modelRayDir.x%modelRayDir.y%modelRayDir.z));
+		// Log(str(format(" Entity: (%1%,%2%,%3%)")%m->mesh->position.x%m->mesh->position.y%m->mesh->position.z));
 		if ( ( thisHit = m->mesh->lineIntersects( rayPos, modelRayDir.xyz ) ) > 0.0f ) {
 			// pick this object
 			if ( selection && m == selection ) Log("  Already picked this Entity!");

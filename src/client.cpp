@@ -493,7 +493,7 @@ void mouseClick(int button, int state, int x, int y) {
 
 				if ( !selection ) {
 
-					glm::vec3 rayPos = camera.position;
+					glm::vec3 rayPos = glm::vec3(-1*camera.position.x, camera.position.y, -1*camera.position.z);
 
 					// ray direction
 					glm::vec4 rayDir      = glm::vec4( xw, yw, 1.0f, 1.0f );
@@ -503,7 +503,7 @@ void mouseClick(int button, int state, int x, int y) {
 					glm::quat quat        = quatY * quatX;
 					glm::mat4 view        = glm::toMat4(quat);
 
-					glm::vec4 modelRayDir = glm::inverse(view) * glm::inverse(perspective) * rayDir * glm::vec4( -1.0f, -1.0f, 1.0f, 1.0f );
+					glm::vec4 modelRayDir = glm::inverse(view) * glm::inverse(perspective) * rayDir * glm::vec4( 1.0f, -1.0f, -1.0f, 1.0f );
 					// glm::vec4 modelRayDir = glm::inverse(view) * rayDir;
 					modelRayDir.x /= modelRayDir.w;
 					modelRayDir.y /= modelRayDir.w;
@@ -511,7 +511,22 @@ void mouseClick(int button, int state, int x, int y) {
 					modelRayDir.w /= modelRayDir.w;
 					modelRayDir = glm::normalize(modelRayDir);
 
-					ResourceManager::world->terrain->terrainPick( rayPos, glm::vec3(modelRayDir) );
+					glm::vec3 modelRayDir3 = glm::vec3(modelRayDir);
+					Log(str(format("Trying to select.. (%1%,%2%,%3%) + t<%4%,%5%,%6%>")%rayPos.x%rayPos.y%rayPos.z%modelRayDir3.x%modelRayDir3.y%modelRayDir3.z));
+					Tri* triHit = ResourceManager::world->terrain->terrainPick( rayPos, modelRayDir3 );
+					if ( triHit ) {
+						/* Selection:
+						 * 	- Tri (tri, edges, verts)
+						 * 	- Neighbours (tris, edges, verts)
+						 * 	- Indirect Neighbours (sharing same verts)
+						 *
+						 *	* The above should only place those items into buckets
+						 *	* Each bucket has a class; that class will be rendered a certain way
+						 *	* Rewrite existing tri to point to another existing tri; then restore when unselected
+						 */
+						Log(str(format("Hit a Tri: {%1%,%2%,%3%}") % triHit->p0 % triHit->p1 % triHit->p2));
+						ResourceManager::world->terrain->selectTri( triHit );
+					}
 				}
 
 				mouse_selecting = false;
