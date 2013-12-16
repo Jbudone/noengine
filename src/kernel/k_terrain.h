@@ -539,6 +539,7 @@ struct Tri {
 		p0 = chunk->triangleBuffer[triIndex].p0;
 		p1 = chunk->triangleBuffer[triIndex].p1;
 		p2 = chunk->triangleBuffer[triIndex].p2;
+		Log(str(format("***New Tri*** {%1%,%2%,%3%}: ")%p0%p1%p2));
 	}
 	ushort triIndex;
 	Chunk* chunk = 0;
@@ -548,6 +549,8 @@ struct Tri {
 	static bool oneOrTheOther(ushort p0, ushort p1, ushort match_p0, ushort match_p1);
 	Tri** getNeighbourOnEdge(ushort p0, ushort p1);
 	void reshapeTriOnEdge(ushort p0, ushort p1, ushort p0_new, ushort p1_new);
+
+	static void assertBadTri(Tri* tri);
 
 	Tri* neighbour_p0p1 = 0;
 	Tri* neighbour_p1p2 = 0;
@@ -836,6 +839,7 @@ struct LinkedList_Circle {
 struct TerrainSelection {
 	struct SelectionClass {
 		const static uchar CLASS_HIGHLIGHT = 1;
+		const static uchar CLASS_HIGHLIGHT_NEIGHBOUR = 2;
 		int class_id;
 		vector<Triangle> triangles;
 	};

@@ -123,7 +123,13 @@ void Terrain::render() {
 			mvp = glm::transpose(mvp);
 			glUniformMatrix4fv( glMVP, 1, GL_FALSE, glm::value_ptr(mvp) );
 			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-			glUniform3f( glGetUniformLocation( gl, "in_color" ), 1.0f, 0.8f, 0.0f );
+			if ( selectionClass->class_id == TerrainSelection::SelectionClass::CLASS_HIGHLIGHT ) {
+				glUniform3f( glGetUniformLocation( gl, "in_color" ), 1.0f, 0.8f, 0.0f );
+			} else if ( selectionClass->class_id == TerrainSelection::SelectionClass::CLASS_HIGHLIGHT_NEIGHBOUR ) {
+				glUniform3f( glGetUniformLocation( gl, "in_color" ), 9.0f, 0.4f, 0.0f );
+			} else {
+				glUniform3f( glGetUniformLocation( gl, "in_color" ), 0.7f, 0.0f, 0.3f );
+			}
 			glDrawElements( GL_TRIANGLES, selectionClass->triangles.size()*3, GL_UNSIGNED_SHORT, (void*)0 );
 			glDeleteBuffers( 1, &decal_vbo );
 			glDeleteBuffers( 1, &decal_ibo );
@@ -950,6 +956,61 @@ vector<EdgeTriTree::EdgeChunk*> EdgeTriTree::EdgeTriNode::getContainer(ushort p0
 
 
 // ============================================== //
+void Tri::assertBadTri(Tri* tri) {
+	// Check each neighbour that they've also neighboured us back
+	// Also check that none of our neighboured tri's (nor the neighbours of our neighboured tri's) are the same..ie they
+	// all must be unique from one another
+	if ( tri->neighbour_p0p1 ) {
+		assert( tri->neighbour_p0p1->neighbour_p0p1 == tri ||
+				tri->neighbour_p0p1->neighbour_p1p2 == tri ||
+				tri->neighbour_p0p1->neighbour_p2p0 == tri );
+		assert( tri->neighbour_p0p1->neighbour_p0p1 == 0 || tri->neighbour_p0p1->neighbour_p0p1 != tri->neighbour_p0p1->neighbour_p1p2 );
+		assert( tri->neighbour_p0p1->neighbour_p0p1 == 0 || tri->neighbour_p0p1->neighbour_p0p1 != tri->neighbour_p0p1->neighbour_p2p0 );
+		assert( tri->neighbour_p0p1->neighbour_p1p2 == 0 || tri->neighbour_p0p1->neighbour_p1p2 != tri->neighbour_p0p1->neighbour_p2p0 );
+		assert( ( tri->neighbour_p0p1->p0 == tri->p0 && tri->neighbour_p0p1->p1 == tri->p1 ) ||
+				( tri->neighbour_p0p1->p1 == tri->p0 && tri->neighbour_p0p1->p2 == tri->p1 ) ||
+				( tri->neighbour_p0p1->p2 == tri->p0 && tri->neighbour_p0p1->p0 == tri->p1 ) ||
+				( tri->neighbour_p0p1->p0 == tri->p0 && tri->neighbour_p0p1->p2 == tri->p1 ) ||
+				( tri->neighbour_p0p1->p1 == tri->p0 && tri->neighbour_p0p1->p0 == tri->p1 ) ||
+				( tri->neighbour_p0p1->p2 == tri->p0 && tri->neighbour_p0p1->p1 == tri->p1 ) ); // connects on same edge
+	}
+	if ( tri->neighbour_p1p2 ) {
+		assert( tri->neighbour_p1p2->neighbour_p0p1 == tri ||
+				tri->neighbour_p1p2->neighbour_p1p2 == tri ||
+				tri->neighbour_p1p2->neighbour_p2p0 == tri );
+		assert( tri->neighbour_p1p2->neighbour_p0p1 == 0 || tri->neighbour_p1p2->neighbour_p0p1 != tri->neighbour_p1p2->neighbour_p1p2 );
+		assert( tri->neighbour_p1p2->neighbour_p0p1 == 0 || tri->neighbour_p1p2->neighbour_p0p1 != tri->neighbour_p1p2->neighbour_p2p0 );
+		assert( tri->neighbour_p1p2->neighbour_p1p2 == 0 || tri->neighbour_p1p2->neighbour_p1p2 != tri->neighbour_p1p2->neighbour_p2p0 );
+		assert( ( tri->neighbour_p1p2->p0 == tri->p1 && tri->neighbour_p1p2->p1 == tri->p2 ) ||
+				( tri->neighbour_p1p2->p1 == tri->p1 && tri->neighbour_p1p2->p2 == tri->p2 ) ||
+				( tri->neighbour_p1p2->p2 == tri->p1 && tri->neighbour_p1p2->p0 == tri->p2 ) ||
+				( tri->neighbour_p1p2->p0 == tri->p1 && tri->neighbour_p1p2->p2 == tri->p2 ) ||
+				( tri->neighbour_p1p2->p1 == tri->p1 && tri->neighbour_p1p2->p0 == tri->p2 ) ||
+				( tri->neighbour_p1p2->p2 == tri->p1 && tri->neighbour_p1p2->p1 == tri->p2 ) ); // connects on same edge
+	}
+	if ( tri->neighbour_p2p0 ) {
+		assert( tri->neighbour_p2p0->neighbour_p0p1 == tri ||
+				tri->neighbour_p2p0->neighbour_p1p2 == tri ||
+				tri->neighbour_p2p0->neighbour_p2p0 == tri );
+		assert( tri->neighbour_p2p0->neighbour_p0p1 == 0 || tri->neighbour_p2p0->neighbour_p0p1 != tri->neighbour_p2p0->neighbour_p1p2 );
+		assert( tri->neighbour_p2p0->neighbour_p0p1 == 0 || tri->neighbour_p2p0->neighbour_p0p1 != tri->neighbour_p2p0->neighbour_p2p0 );
+		assert( tri->neighbour_p2p0->neighbour_p1p2 == 0 || tri->neighbour_p2p0->neighbour_p1p2 != tri->neighbour_p2p0->neighbour_p2p0 );
+		assert( ( tri->neighbour_p2p0->p0 == tri->p2 && tri->neighbour_p2p0->p1 == tri->p0 ) ||
+				( tri->neighbour_p2p0->p1 == tri->p2 && tri->neighbour_p2p0->p2 == tri->p0 ) ||
+				( tri->neighbour_p2p0->p2 == tri->p2 && tri->neighbour_p2p0->p0 == tri->p0 ) ||
+				( tri->neighbour_p2p0->p0 == tri->p2 && tri->neighbour_p2p0->p2 == tri->p0 ) ||
+				( tri->neighbour_p2p0->p1 == tri->p2 && tri->neighbour_p2p0->p0 == tri->p0 ) ||
+				( tri->neighbour_p2p0->p2 == tri->p2 && tri->neighbour_p2p0->p1 == tri->p0 ) ); // connects on same edge
+	}
+
+	assert( tri->neighbour_p0p1 == 0 || tri->neighbour_p0p1 != tri->neighbour_p1p2 );
+	assert( tri->neighbour_p0p1 == 0 || tri->neighbour_p0p1 != tri->neighbour_p2p0 );
+	assert( tri->neighbour_p1p2 == 0 || tri->neighbour_p1p2 != tri->neighbour_p2p0 );
+}
+// ============================================== //
+
+
+// ============================================== //
 void Tri::reshapeTriOnEdge(ushort p0, ushort p1, ushort p0_new, ushort p1_new) {
 	if ( this->p0 == p0 ) {
 		this->p0 = p0_new;
@@ -976,6 +1037,7 @@ void Tri::reshapeTriOnEdge(ushort p0, ushort p1, ushort p0_new, ushort p1_new) {
 	this->chunk->triangleBuffer[this->triIndex].p0 = this->p0;
 	this->chunk->triangleBuffer[this->triIndex].p1 = this->p1;
 	this->chunk->triangleBuffer[this->triIndex].p2 = this->p2;
+	Log(str(format("***Reshaped Tri*** {%1%,%2%,%3%}")%this->p0%this->p1%this->p2));
 }
 // ============================================== //
 
@@ -1004,6 +1066,17 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 			vector<pair<ushort, vector<EdgeTriNode*>*>> neighbouringChecks;
 			neighbouringChecks.push_back({ edge->p0, &edge->p0_edges });
 			neighbouringChecks.push_back({ edge->p1, &edge->p1_edges });
+
+			// Check that the attached tri's are all good
+			assert( (edge->triangle_p0p1==0) ||
+					(edge->triangle_p0p1->p0 == edge->p0 && edge->triangle_p0p1->p1 == edge->p1) ||
+					(edge->triangle_p0p1->p1 == edge->p0 && edge->triangle_p0p1->p2 == edge->p1) ||
+					(edge->triangle_p0p1->p2 == edge->p0 && edge->triangle_p0p1->p0 == edge->p1) );
+			assert( (edge->triangle_p1p0==0) ||
+					(edge->triangle_p1p0->p1 == edge->p0 && edge->triangle_p1p0->p0 == edge->p1) ||
+					(edge->triangle_p1p0->p2 == edge->p0 && edge->triangle_p1p0->p1 == edge->p1) ||
+					(edge->triangle_p1p0->p0 == edge->p0 && edge->triangle_p1p0->p2 == edge->p1) );
+
 			for ( auto neighbouringCheck : neighbouringChecks ) {
 				ushort pt = neighbouringCheck.first;
 				vector<EdgeTriNode*>* neighbours = neighbouringCheck.second;
@@ -1050,6 +1123,8 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 				}
 				i=0;
 			}
+
+
 		}
 
 		void touchingEdge(EdgeTriNode* edge) {
@@ -1370,6 +1445,7 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 									edge_p1p2 = neighbourEdge;
 									edge_p1p2_flipped = (neighbourEdge->p1 == edge_p1_expected);
 									edge_p1p2_neighbouringElement = ( edge_p1p2_flipped ? &edge_p1p2->p0_edges : &edge_p1p2->p1_edges );
+									(*(edge_p1p2_flipped? &edge_p1p2->triangle_p0p1 : &edge_p1p2->triangle_p1p0)) = 0; // unattach triangle (to-be changed)
 									Log(str(format("			Found edge_p1p2 {%1%,%2%} Flipped/NeighbouringEl: [%3%](%4%)")%
 												neighbourEdge->p0 % neighbourEdge->p1 % (edge_p1p2_flipped?"Flipped":"NotFlipped") % (edge_p1p2_flipped?"p0":"p1")));
 
@@ -1494,6 +1570,7 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 							e_tri->chunk->triangleBuffer.push_back( Triangle( p1, p2, (newEdge->flippedEdge? e_edge->p0 : e_edge->p1) ) );
 							ushort subTri_outi = e_tri->chunk->triangleBuffer.size() - 1;
 							Tri* subTri_out = new Tri( e_tri->chunk, subTri_outi );
+							Tri::assertBadTri(subTri_out);
 
 							// Subdivide (lower tri): {p0->p1} 
 							// NOTE: using the same existing Tri since we refer to Triangles by their index, we do NOT want
@@ -1505,9 +1582,9 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 							// -----------------------
 
 							// Attach (upper tri)
-							edge_end->triangle_p0p1 = subTri_out;
+							edge_end->triangle_p1p0 = subTri_out; // TODO: used to be p0p1
 							edge_split->triangle_p0p1 = subTri_out;
-							Tri** edge_p1p2_subTriSide = (edge_p1p2_flipped? &edge_p1p2->triangle_p1p0 : &edge_p1p2->triangle_p0p1 );
+							Tri** edge_p1p2_subTriSide = (edge_p1p2_flipped? &edge_p1p2->triangle_p0p1 : &edge_p1p2->triangle_p1p0 );
 							(*edge_p1p2_subTriSide) = subTri_out;
 
 							// Attach (lower tri)
@@ -1515,6 +1592,12 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 							edge_split->triangle_p1p0 = e_tri;
 							Tri** edge_p0p2_triSide = (edge_p0p2_flipped? &edge_p0p2->triangle_p1p0 : &edge_p0p2->triangle_p0p1 );
 							(*edge_p0p2_triSide) = e_tri;
+
+							assertBadNeighbours(edge);
+							assertBadNeighbours(edge_end);
+							assertBadNeighbours(edge_split);
+							assertBadNeighbours(edge_p1p2);
+							assertBadNeighbours(edge_p0p2);
 
 
 							// Neighbour the Tri's
@@ -1524,7 +1607,7 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 
 							// Neighbour subTri_out w/ top
 							ushort ref_ep1 = (newEdge->flippedEdge?e_edge->p0:e_edge->p1);
-							Tri** neighbourTri_ep1p2 = e_tri->getNeighbourOnEdge( ref_ep1, p2 );
+							Tri** neighbourTri_ep1p2 = e_tri->getNeighbourOnEdge( p1, p2 ); // NOTE: p1 instead of ref_ep1 since e_tri has been resized
 							if ( (*neighbourTri_ep1p2) ) {
 								(*subTri_out->getNeighbourOnEdge(ref_ep1, p2)) = (*neighbourTri_ep1p2);
 								(*(*neighbourTri_ep1p2)->getNeighbourOnEdge( ref_ep1, p2 )) = subTri_out;
@@ -1532,11 +1615,14 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 
 							// Neighbour subTri_out w/ tri
 							(*neighbourTri_ep1p2) = subTri_out;
-							(*subTri_out->getNeighbourOnEdge(p0, p2)) = e_tri;
+							(*subTri_out->getNeighbourOnEdge(p1, p2)) = e_tri;
+							Tri::assertBadTri(subTri_out);
+							Tri::assertBadTri(e_tri);
 
 							// TODO: using reference Tri**, however we rewrite the top Tri neighbour in e_tri after setting
 							// subTri to e_tri's neighbour. Will this affect subTri's neighbouring?
 
+							Log(str(format("	Deleting e_edge {%1%,%2%}")%e_edge->p0%e_edge->p1));
 							delete e_edge;
 						} else if ( (newEdge->flippedEdge && p1 == e_edge->p0) || p1 == e_edge->p1 ) {
 							// Case 2 (2 cuts); {ep0->p0,ep1->p0}, p0->p1
@@ -1608,6 +1694,7 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 								if ( !edge_p0p2 && Tri::oneOrTheOther( neighbourEdge->p0, neighbourEdge->p1, edge_p0_expected, p2 ) ) {
 									edge_p0p2 = neighbourEdge;
 									edge_p0p2_flipped = (neighbourEdge->p1 == edge_p0_expected);
+									(*(edge_p0p2_flipped? &edge_p0p2->triangle_p1p0 : &edge_p0p2->triangle_p0p1)) = 0; // unattach triangle (to-be changed)
 									edge_p0p2_neighbouringElement = ( edge_p0p2_flipped ? &edge_p0p2->p0_edges : &edge_p0p2->p1_edges );
 									Log(str(format("			Found edge_p0p2 {%1%,%2%} Flipped/NeighbouringEl: [%3%](%4%)")%
 												neighbourEdge->p0 % neighbourEdge->p1 % (edge_p0p2_flipped?"Flipped":"NotFlipped") % (edge_p0p2_flipped?"p0":"p1")));
@@ -1765,6 +1852,7 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 							e_tri->chunk->triangleBuffer.push_back( Triangle( (newEdge->flippedEdge? e_edge->p1 : e_edge->p0), p2, p0 ) );
 							ushort subTri_outi = e_tri->chunk->triangleBuffer.size() - 1;
 							Tri* subTri_out = new Tri( e_tri->chunk, subTri_outi );
+							Tri::assertBadTri(subTri_out);
 
 							// Subdivide (lower tri): {p0->p1} 
 							// NOTE: using the same existing Tri since we refer to Triangles by their index, we do NOT want
@@ -1788,6 +1876,11 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 							Tri** edge_p1p2_triSide = (edge_p1p2_flipped? &edge_p1p2->triangle_p1p0 : &edge_p1p2->triangle_p0p1 );
 							(*edge_p1p2_triSide) = e_tri;
 
+							assertBadNeighbours(edge_end);
+							assertBadNeighbours(edge_split);
+							assertBadNeighbours(edge_p1p2);
+							assertBadNeighbours(edge_p0p2);
+
 
 							// Neighbour the Tri's
 							// ------------------------
@@ -1805,10 +1898,13 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 							// Neighbour subTri_out w/ tri
 							(*neighbourTri_ep0p2) = subTri_out;
 							(*subTri_out->getNeighbourOnEdge(p0, p2)) = e_tri;
+							Tri::assertBadTri(subTri_out);
+							Tri::assertBadTri(e_tri);
 
 							// TODO: using reference Tri**, however we rewrite the top Tri neighbour in e_tri after setting
 							// subTri to e_tri's neighbour. Will this affect subTri's neighbouring?
 
+							Log(str(format("	Deleting e_edge {%1%,%2%}")%e_edge->p0%e_edge->p1));
 							delete e_edge;
 						} else {
 							// Case 3 (3 cuts); ep0->p0, p0->p1, p1->ep1
@@ -1925,6 +2021,7 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 								if ( !edge_p0p2 && Tri::oneOrTheOther( neighbourEdge->p0, neighbourEdge->p1, edge_p0_expected, p2 ) ) {
 									edge_p0p2 = neighbourEdge;
 									edge_p0p2_flipped = (neighbourEdge->p1 == edge_p0_expected);
+									(*(edge_p0p2_flipped? &edge_p0p2->triangle_p0p1 : &edge_p0p2->triangle_p1p0)) = 0; // unattach triangle (to-be changed)
 									edge_p0p2_neighbouringElement = ( edge_p0p2_flipped ? &edge_p0p2->p0_edges : &edge_p0p2->p1_edges );
 
 									Log(str(format("			Found edge_p0p2 {%1%,%2%} Flipped/NeighbouringEl: [%3%](%4%)")%
@@ -1947,6 +2044,7 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 								if ( !edge_p1p2 && Tri::oneOrTheOther( neighbourEdge->p0, neighbourEdge->p1, edge_p1_expected, p2 ) ) {
 									edge_p1p2 = neighbourEdge;
 									edge_p1p2_flipped = (neighbourEdge->p1 == edge_p1_expected);
+									(*(edge_p1p2_flipped? &edge_p1p2->triangle_p0p1 : &edge_p1p2->triangle_p1p0)) = 0; // unattach triangle (to-be changed)
 									edge_p1p2_neighbouringElement = ( edge_p1p2_flipped ? &edge_p1p2->p0_edges : &edge_p1p2->p1_edges );
 
 									Log(str(format("			Found edge_p1p2 {%1%,%2%} Flipped/NeighbouringEl: [%3%](%4%)")%
@@ -2156,6 +2254,14 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 							edge_botsplit->triangle_p0p1 = e_tri;
 							edge_topsplit->triangle_p1p0 = e_tri;
 
+							assertBadNeighbours(edge);
+							assertBadNeighbours(edge_top);
+							assertBadNeighbours(edge_bot);
+							assertBadNeighbours(edge_topsplit);
+							assertBadNeighbours(edge_botsplit);
+							assertBadNeighbours(edge_p1p2);
+							assertBadNeighbours(edge_p0p2);
+
 
 							// Neighbour the Tri's
 							// ------------------------
@@ -2184,13 +2290,19 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 							// Neighbour subTri_bot w/ tri
 							(*neighbourTri_ep0p2) = subTri_bot;
 							(*subTri_bot->getNeighbourOnEdge(p0, p2)) = e_tri;
+							Tri::assertBadTri(subTri_top);
+							Tri::assertBadTri(subTri_bot);
+							Tri::assertBadTri(e_tri);
 
 							// TODO: using reference Tri**, however we rewrite the top/bot Tri neighbour in e_tri after setting
 							// subTri to e_tri's neighbour. Will this affect subTri's neighbouring?
 
+							Log(str(format("	Deleting e_edge {%1%,%2%}")%e_edge->p0%e_edge->p1));
 							delete e_edge;
 						}
 
+						newEdge->flippedEdge = false; // TODO: we only need to know if the edge WAS flipped, but as far
+						// as the caller is concerned, this new edge is NOT flipped
 						break;
 					} else if ( (whichCase = 3) && e_p0.between( vp0, vp1 ) && e_p1.between( vp0, vp1 ) ) {
 						// Existing edge is a subdivided version of our new edge
@@ -2676,6 +2788,7 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 		triEdge_p0p1->assertBadNeighbours(triEdge_p0p1->edges.front()->edge);
 		triEdge_p1p2->assertBadNeighbours(triEdge_p1p2->edges.front()->edge);
 		triEdge_p2p0->assertBadNeighbours(triEdge_p2p0->edges.front()->edge);
+		Tri::assertBadTri(newTri);
 
 	} else if ( triEdge_p0p1->edges.size() == 1 &&
 		 triEdge_p2p0->edges.size() > 1 ) {
@@ -3604,6 +3717,8 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 			int i=0;
 			for( auto vertex : terrain->vertexBuffer ) {
 				if ( vertex == new_vert ) {
+					Log("Borrowed vertex elsewhere..");
+					// assert(false);
 					results.projected_p1->vertexIndex = i;
 					break;
 				}
@@ -3629,6 +3744,8 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 			i=0;
 			for( auto vertex : terrain->vertexBuffer ) {
 				if ( vertex == new_vert ) {
+					Log("Borrowed vertex elsewhere..");
+					// assert(false);
 					results.projected_p2->vertexIndex = i;
 					break;
 				}
@@ -3655,6 +3772,8 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 				i=0;
 				for( auto vertex : terrain->vertexBuffer ) {
 					if ( vertex == new_vert ) {
+						Log("Borrowed vertex elsewhere..");
+						// assert(false);
 						results.projected_midpoint->vertexIndex = i;
 						break;
 					}
@@ -3688,6 +3807,8 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 				i=0;
 				for( auto vertex : terrain->vertexBuffer ) {
 					if ( vertex == new_vert ) {
+						Log("Borrowed vertex elsewhere..");
+						// assert(false);
 						results.projected_p1Mid->vertexIndex = i;
 						break;
 					}
@@ -3707,6 +3828,8 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 				i=0;
 				for( auto vertex : terrain->vertexBuffer ) {
 					if ( vertex == new_vert ) {
+						Log("Borrowed vertex elsewhere..");
+						// assert(false);
 						results.projected_p2Mid->vertexIndex = i;
 						break;
 					}
@@ -3752,6 +3875,8 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 			i=0;
 			for( auto vertex : terrain->vertexBuffer ) {
 				if ( vertex == new_vert ) {
+					Log("Borrowed vertex elsewhere..");
+					// assert(false);
 					results.projected_p1p2->vertexIndex = i;
 					break;
 				}
@@ -3795,6 +3920,8 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 				Vertex new_vert =  Vertex(projectedVertex0->v_x, projectedVertex0->v_y, projectedVertex0->v_z);
 				for( auto vertex : terrain->vertexBuffer ) {
 					if ( vertex == new_vert ) {
+						Log("Borrowed vertex elsewhere..");
+						// assert(false);
 						projection->vertexIndex = i;
 						break;
 					}
@@ -3818,6 +3945,8 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 				i=0;
 				for( auto vertex : terrain->vertexBuffer ) {
 					if ( vertex == new_vert ) {
+						Log("Borrowed vertex elsewhere..");
+						// assert(false);
 						results.projected_p1p2->vertexIndex = i;
 						break;
 					}
@@ -3856,6 +3985,8 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 			i=0;
 			for( auto vertex : terrain->vertexBuffer ) {
 				if ( vertex == new_vert ) {
+					Log("Borrowed vertex elsewhere..");
+					// assert(false);
 					results.projected_midpoint->vertexIndex = i;
 					break;
 				}
@@ -4560,10 +4691,19 @@ void Terrain::selectTri(Tri* tri) {
 
 	Triangle triangle = tri->chunk->triangleBuffer[tri->triIndex];
 
+	// Select main triangles
 	TerrainSelection::SelectionClass* selectionClass = new TerrainSelection::SelectionClass();
 	selectionClass->class_id = TerrainSelection::SelectionClass::CLASS_HIGHLIGHT;
 	selectionClass->triangles.push_back( triangle );
 	selection->selections.push_back( selectionClass );
+
+	// Select neighboured tri's
+	selectionClass = new TerrainSelection::SelectionClass();
+	selectionClass->class_id = TerrainSelection::SelectionClass::CLASS_HIGHLIGHT_NEIGHBOUR;
+	if ( tri->neighbour_p0p1 ) selectionClass->triangles.push_back( tri->neighbour_p0p1->chunk->triangleBuffer[tri->neighbour_p0p1->triIndex] );
+	if ( tri->neighbour_p1p2 ) selectionClass->triangles.push_back( tri->neighbour_p1p2->chunk->triangleBuffer[tri->neighbour_p1p2->triIndex] );
+	if ( tri->neighbour_p2p0 ) selectionClass->triangles.push_back( tri->neighbour_p2p0->chunk->triangleBuffer[tri->neighbour_p2p0->triIndex] );
+	if ( !selectionClass->triangles.empty() ) selection->selections.push_back( selectionClass );
 }
 // ============================================== //
 
