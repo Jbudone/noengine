@@ -346,10 +346,10 @@ struct Vertex {
 	Vertex(float v_x, float v_y, float v_z) : v_x(v_x), v_y(v_y), v_z(v_z) { }
 	float v_x, v_y, v_z;
 	bool operator ==(Vertex& vertex) {
-		int rpt = 1; // rounding point
-		return (v_x*rpt == vertex.v_x*rpt &&
-				v_y*rpt == vertex.v_y*rpt &&
-				v_z*rpt == vertex.v_z*rpt);
+		int rpt = 1000; // rounding point
+		return ((int)(v_x*rpt) == (int)(vertex.v_x*rpt) &&
+				(int)(v_y*rpt) == (int)(vertex.v_y*rpt) &&
+				(int)(v_z*rpt) == (int)(vertex.v_z*rpt));
 	}
 	bool between(Vertex& v1, Vertex& v2) {
 		return (
