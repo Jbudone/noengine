@@ -317,7 +317,7 @@ Game Thoughts
 					 numbers), when those numbers grow high enough then the middle statue grows into
 					a higher level statue. Statues work like Dungeon Crawl type statues (cannot
 					move, extremely aggressive and VERY powerful with a large range area); various
-					statues include: archers, lightning statues, ice/fire statues, moklob plants
+					statues include: archers, lightning statues, ice/fire statues, moklob plants.
 	> Game Design -- the internal gaming is mostly focused on trades. Trade skills are
 					used to mostly to help grow the kingdoms and take over in politics and
 					mass trade among cities, etc. .. People can get a job with the Knights
