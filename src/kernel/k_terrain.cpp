@@ -2,13 +2,13 @@
 
 const Point<int> Chunk::chunkSize = Point<int>(113,113,113);
 const Point<int> EdgeTriTree::EdgeChunk::chunkSize = Point<int>(113,113,113);
-// const Point<int> Chunk::chunkSize = Point<int>(501,201,113);
-// const Point<int> EdgeTriTree::EdgeChunk::chunkSize = Point<int>(501,201,113);
+// const Point<int> Chunk::chunkSize = Point<int>(3,3,3);
+// const Point<int> EdgeTriTree::EdgeChunk::chunkSize = Point<int>(3,3,3);
 // const Point<int> Chunk::chunkSize = Point<int>(100,100,100);
 // const Point<int> EdgeTriTree::EdgeChunk::chunkSize = Point<int>(100,100,100);
 
-const uint Terrain::width = 800;
-const uint Terrain::depth = 800;
+const uint Terrain::width = 1000;
+const uint Terrain::depth = 1000;
 const uint Terrain::height = 5000;
 
 Terrain* EdgeTriTree::terrain = 0;
@@ -40,6 +40,13 @@ void Terrain::clearTerrain() {
 
 // ============================================== //
 void Terrain::construct() {
+
+	glUseProgram(gl);
+	glGenBuffers( 1, &vbo );
+	glBindBuffer( GL_ARRAY_BUFFER, vbo );
+	glBufferData( GL_ARRAY_BUFFER, ( vertexBuffer.size() ) * sizeof(Vertex), vertexBuffer.data(), GL_STATIC_DRAW ); // TODO: dynamic drawing? multiple VBO's per LOD & page?
+
+
 
 
 	Chunk* farBackLeft = headChunk;
@@ -434,27 +441,33 @@ FIXME: Bugfix ideas
 		 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		*/
 
-		if ( !suppressFailFix ) {
-			addedTriangles = addTriangleIntoChunk(chunk, p1, p2, p0, true);
+		if ( p0->vertexIndex == p1->vertexIndex ||
+			 p0->vertexIndex == p2->vertexIndex ||
+			 p1->vertexIndex == p2->vertexIndex ) {
+			// intentionally blank
+		} else {
+			if ( !suppressFailFix ) {
+				addedTriangles = addTriangleIntoChunk(chunk, p1, p2, p0, true);
+			}
+			if ( addedTriangles.empty() && !suppressFailFix ) {
+				// TODO: I've commented this out because it causes issues...this shouldn't be a problem because if its
+				// working without this then clearly this is being triggered when it shouldn't be... .empty() causing
+				// issues? but there MUST be cases (although very rare) where this case is necessary
+				// addedTriangles = addTriangleIntoChunk(chunk, p2, p0, p1, true);
+			}
+			if ( addedTriangles.empty() ) {
+				Log(str(format("	Failed attempted fix..: {%1%,%2%,%3%}")%p0->vertexIndex%p1->vertexIndex%p2->vertexIndex));
+			}
+			/*
+			   if ( p0->vertexIndex != p1->vertexIndex &&
+			   p0->vertexIndex != p2->vertexIndex &&
+			   p1->vertexIndex != p2->vertexIndex ) {
+			   chunk->triangleBuffer.push_back(Triangle(p0->vertexIndex, p1->vertexIndex, p2->vertexIndex));
+			   ushort bad_tri = chunk->triangleBuffer.size() - 1;
+			   edgeTree->addTriangle( chunk, bad_tri );
+			   }
+			   */
 		}
-		if ( addedTriangles.empty() && !suppressFailFix ) {
-			// TODO: I've commented this out because it causes issues...this shouldn't be a problem because if its
-			// working without this then clearly this is being triggered when it shouldn't be... .empty() causing
-			// issues? but there MUST be cases (although very rare) where this case is necessary
-			// addedTriangles = addTriangleIntoChunk(chunk, p2, p0, p1, true);
-		}
-		if ( addedTriangles.empty() ) {
-			Log(str(format("	Failed attempted fix..: {%1%,%2%,%3%}")%p0->vertexIndex%p1->vertexIndex%p2->vertexIndex));
-		}
-		/*
-		if ( p0->vertexIndex != p1->vertexIndex &&
-			 p0->vertexIndex != p2->vertexIndex &&
-			 p1->vertexIndex != p2->vertexIndex ) {
-			chunk->triangleBuffer.push_back(Triangle(p0->vertexIndex, p1->vertexIndex, p2->vertexIndex));
-			ushort bad_tri = chunk->triangleBuffer.size() - 1;
-			edgeTree->addTriangle( chunk, bad_tri );
-		}
-		*/
 		return addedTriangles;
 	}
 	if ( addedResults.addResults == Chunk::AddTriangleResults::TRIANGLE_ADD_SUCCEEDED ) {
@@ -480,6 +493,12 @@ FIXME: Bugfix ideas
 			edgeTree->addTriangle( chunk, addedResults.addedTriangle );
 		}
 
+	} else if ( addedResults.addResults == 
+			Chunk::AddTriangleResults::TRIANGLE_ADD_NOT_NECESSARY ) {
+		Log(str(format("	Not necessary to add this triangle.. Probably already added")));
+	} else if ( addedResults.addResults == 
+			Chunk::AddTriangleResults::TRIANGLE_ADD_FAILED_BADTRI ) {
+		Log(str(format("	BAD TRIANGLE!!! Not a real tri? (shared verts)")));
 	} else if ( addedResults.addResults ==
 			Chunk::AddTriangleResults::TRIANGLE_ADD_TWOPOINT_ONESIDE_NOMID ) {
 
@@ -750,6 +769,9 @@ vector<EdgeTriTree::EdgeChunk*> EdgeTriTree::EdgeTriNode::getContainers(ushort p
 	Vertex direction = Vertex( vp1.v_x - vp0.v_x, vp1.v_y - vp0.v_y, vp1.v_z - vp0.v_z );
 	glm::vec3 dir_vec = glm::normalize(glm::vec3( vp1.v_x - vp0.v_x, vp1.v_y - vp0.v_y, vp1.v_z - vp0.v_z ));
 
+	// NOTE: t will be calculated as a point along the line of (v0-v1).. t MUST be between (0,1] in order to fit on the
+	// line
+
 
 	// find p0 chunk container
 	EdgeChunk* p0Chunk = EdgeTriTree::terrain->edgeTree->headChunk;
@@ -797,11 +819,48 @@ vector<EdgeTriTree::EdgeChunk*> EdgeTriTree::EdgeTriNode::getContainers(ushort p
 
 		float t;
 		Vertex hitpoint;
+		// TODO: function which checks if t leads to a hitpoint on the OUTSIDE bounds of chunk
+		// ... need to check t hitpoint against bounds of chunk..if it hits the outside bounds then try moving forward
+		// by epsilon repeatedly until we hit a threshold t value
+		auto fit_t_in_chunk = []( Vertex& v, EdgeChunk* chunk, Vertex& direction, float t ) -> float {
+			return t; // TODO: FIXME
+			// Check if the line [v,[v+dir]] fits within the outer bounds of this chunk. Since a chunk contains a point
+			// within its [x0,x') bounds, then we are concerned with the x' value which is really just the ceiling of x'
+			// minus epsilon (a point extremely close to the rounded value of x'). This function will check if the
+			// hitpoint is within the bounds of the chunk, and repeatedly increase the t value until either we are
+			// within the chunk or the t value is too high
+			float max_t = t+0.2f; // threshold level slightly ahead of current point
+			float inc_t = 0.01f;
+			while ( t <= max_t ) {
+				Vertex hitpoint = Vertex( v.v_x + t*direction.v_x, v.v_y + t*direction.v_y, v.v_z + t*direction.v_z );
+				if ( hitpoint.v_x < chunk->worldOffset.x ||
+					 hitpoint.v_y < chunk->worldOffset.y ||
+					 hitpoint.v_z < chunk->worldOffset.z ) {
+					// we've gone too far..clearly this chunk does not contain our vert
+					return 0;
+				}
+
+				if ( hitpoint.v_x < chunk->worldOffset.x + chunk->chunkSize.x &&
+					 hitpoint.v_y < chunk->worldOffset.y + chunk->chunkSize.y &&
+					 hitpoint.v_z < chunk->worldOffset.z + chunk->chunkSize.z ) {
+					// the t value is accepted
+					return t;
+				}
+
+				// need to go further along the line to fit within the bounds
+				t += inc_t;
+			}
+
+			return 0;
+		};
+
 		if ( d_up > 0 ) { // above
 			// check if above chunk is hit
-			t = midChunk->above->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, EdgeChunk::FACE_TOP );
+			t = midChunk->above->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, EdgeChunk::FACE_BOTTOM );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, midChunk->above, direction, t );
+
 			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
-			if ( t <= 1 && t > 0 && midChunk->above->pointInFace( hitpoint, EdgeChunk::FACE_TOP ) ) {
+			if ( t <= 1 && t >= 0 && midChunk->above->pointInFace( hitpoint, EdgeChunk::FACE_BOTTOM ) ) {
 				midChunk = midChunk->above;
 				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
 				--d_up;
@@ -809,9 +868,11 @@ vector<EdgeTriTree::EdgeChunk*> EdgeTriTree::EdgeTriNode::getContainers(ushort p
 			}
 		}
 		if ( d_up < 0 ) { // below
-			t = midChunk->below->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, EdgeChunk::FACE_BOTTOM );
+			t = midChunk->below->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, EdgeChunk::FACE_TOP );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, midChunk->below, direction, t );
+
 			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
-			if ( t <= 1 && t > 0 && midChunk->below->pointInFace( hitpoint, EdgeChunk::FACE_BOTTOM ) ) {
+			if ( t <= 1 && t >= 0 && midChunk->below->pointInFace( hitpoint, EdgeChunk::FACE_TOP ) ) {
 				midChunk = midChunk->below;
 				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
 				++d_up;
@@ -820,9 +881,11 @@ vector<EdgeTriTree::EdgeChunk*> EdgeTriTree::EdgeTriNode::getContainers(ushort p
 		}
 
 		if ( d_ahead > 0 ) { // infront
-			t = midChunk->infront->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, EdgeChunk::FACE_FRONT );
+			t = midChunk->infront->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, EdgeChunk::FACE_BACK );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, midChunk->infront, direction, t );
+
 			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
-			if ( t <= 1 && t > 0 && midChunk->infront->pointInFace( hitpoint, EdgeChunk::FACE_FRONT ) ) {
+			if ( t <= 1 && t >= 0 && midChunk->infront->pointInFace( hitpoint, EdgeChunk::FACE_BACK ) ) {
 				midChunk = midChunk->infront;
 				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
 				--d_ahead;
@@ -830,9 +893,11 @@ vector<EdgeTriTree::EdgeChunk*> EdgeTriTree::EdgeTriNode::getContainers(ushort p
 			}
 		}
 		if ( d_ahead < 0 ) { // behind
-			t = midChunk->behind->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, EdgeChunk::FACE_BACK );
+			t = midChunk->behind->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, EdgeChunk::FACE_FRONT );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, midChunk->behind, direction, t );
+
 			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
-			if ( t <= 1 && t > 0 && midChunk->behind->pointInFace( hitpoint, EdgeChunk::FACE_BACK ) ) {
+			if ( t <= 1 && t >= 0 && midChunk->behind->pointInFace( hitpoint, EdgeChunk::FACE_FRONT ) ) {
 				midChunk = midChunk->behind;
 				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
 				++d_ahead;
@@ -841,9 +906,11 @@ vector<EdgeTriTree::EdgeChunk*> EdgeTriTree::EdgeTriNode::getContainers(ushort p
 		}
 
 		if ( d_right > 0 ) { // right
-			t = midChunk->right->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, EdgeChunk::FACE_RIGHT );
+			t = midChunk->right->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, EdgeChunk::FACE_LEFT );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, midChunk->right, direction, t );
+
 			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
-			if ( t <= 1 && t > 0 && midChunk->right->pointInFace( hitpoint, EdgeChunk::FACE_RIGHT ) ) {
+			if ( t <= 1 && t >= 0 && midChunk->right->pointInFace( hitpoint, EdgeChunk::FACE_LEFT ) ) {
 				midChunk = midChunk->right;
 				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
 				--d_right;
@@ -851,15 +918,403 @@ vector<EdgeTriTree::EdgeChunk*> EdgeTriTree::EdgeTriNode::getContainers(ushort p
 			}
 		}
 		if ( d_right < 0 ) { // left
-			t = midChunk->left->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, EdgeChunk::FACE_LEFT );
+			t = midChunk->left->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, EdgeChunk::FACE_RIGHT );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, midChunk->left, direction, t );
+
 			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
-			if ( t <= 1 && t > 0 && midChunk->left->pointInFace( hitpoint, EdgeChunk::FACE_LEFT ) ) {
+			if ( t <= 1 && t >= 0 && midChunk->left->pointInFace( hitpoint, EdgeChunk::FACE_RIGHT ) ) {
 				midChunk = midChunk->left;
 				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
 				++d_right;
 				continue;
 			}
 		}
+
+		//
+		// Edge Segments
+		///////////////////
+		// since a point may lay in only one chunk, and the chunks contain points which are within its [x0,x') bounds,
+		// then its possible for a line to go from the current chunk to a chunk which is adjacent to that chunk and
+		// connects along the chunks edge or corner. A may then have 26 neighbours which must be considered
+
+
+		//
+		// Top Edges (4)
+		//
+
+		if ( d_up > 0 && d_ahead > 0 ) { // up-front
+			EdgeChunk* chunk_test = midChunk->above->infront;
+			uchar face_test       = EdgeChunk::FACE_BOTTOM;
+			t = chunk_test->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, face_test );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, chunk_test, direction, t );
+
+			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
+			if ( t <= 1 && t >= 0 && chunk_test->pointInFace( hitpoint, face_test ) ) {
+				midChunk = chunk_test;
+				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
+				--d_up;
+				--d_ahead;
+				continue;
+			}
+		}
+
+		if ( d_up > 0 && d_right > 0 ) { // up-right
+			EdgeChunk* chunk_test = midChunk->above->right;
+			uchar      face_test  = EdgeChunk::FACE_BOTTOM;
+			t = chunk_test->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, face_test );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, chunk_test, direction, t );
+
+			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
+			if ( t <= 1 && t >= 0 && chunk_test->pointInFace( hitpoint, face_test ) ) {
+				midChunk = chunk_test;
+				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
+				--d_up;
+				--d_right;
+				continue;
+			}
+		}
+
+
+		if ( d_up > 0 && d_ahead < 0 ) { // up-back
+			EdgeChunk* chunk_test = midChunk->above->behind;
+			uchar face_test       = EdgeChunk::FACE_BOTTOM;
+			t = chunk_test->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, face_test );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, chunk_test, direction, t );
+
+			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
+			if ( t <= 1 && t >= 0 && chunk_test->pointInFace( hitpoint, face_test ) ) {
+				midChunk = chunk_test;
+				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
+				--d_up;
+				++d_ahead;
+				continue;
+			}
+		}
+
+		if ( d_up > 0 && d_right < 0 ) { // up-left
+			EdgeChunk* chunk_test = midChunk->above->left;
+			uchar      face_test  = EdgeChunk::FACE_BOTTOM;
+			t = chunk_test->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, face_test );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, chunk_test, direction, t );
+
+			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
+			if ( t <= 1 && t >= 0 && chunk_test->pointInFace( hitpoint, face_test ) ) {
+				midChunk = chunk_test;
+				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
+				--d_up;
+				++d_right;
+				continue;
+			}
+		}
+
+
+
+
+		//
+		// Middle Edges (4)
+		//
+
+
+		if ( d_ahead > 0 && d_right > 0 ) { // front-right
+			EdgeChunk* chunk_test = midChunk->infront->right;
+			uchar      face_test  = EdgeChunk::FACE_BACK;
+			t = chunk_test->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, face_test );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, chunk_test, direction, t );
+
+			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
+			if ( t <= 1 && t >= 0 && chunk_test->pointInFace( hitpoint, face_test ) ) {
+				midChunk = chunk_test;
+				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
+				--d_ahead;
+				--d_right;
+				continue;
+			}
+		}
+
+
+		if ( d_ahead > 0 && d_right < 0 ) { // front-left
+			EdgeChunk* chunk_test = midChunk->infront->left;
+			uchar      face_test  = EdgeChunk::FACE_BACK;
+			t = chunk_test->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, face_test );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, chunk_test, direction, t );
+
+			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
+			if ( t <= 1 && t >= 0 && chunk_test->pointInFace( hitpoint, face_test ) ) {
+				midChunk = chunk_test;
+				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
+				--d_ahead;
+				++d_right;
+				continue;
+			}
+		}
+
+
+		if ( d_ahead < 0 && d_right > 0 ) { // back-right
+			EdgeChunk* chunk_test = midChunk->behind->right;
+			uchar      face_test  = EdgeChunk::FACE_FRONT;
+			t = chunk_test->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, face_test );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, chunk_test, direction, t );
+
+			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
+			if ( t <= 1 && t >= 0 && chunk_test->pointInFace( hitpoint, face_test ) ) {
+				midChunk = chunk_test;
+				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
+				++d_ahead;
+				--d_right;
+				continue;
+			}
+		}
+
+
+		if ( d_ahead < 0 && d_right < 0 ) { // back-left
+			EdgeChunk* chunk_test = midChunk->behind->left;
+			uchar      face_test  = EdgeChunk::FACE_FRONT;
+			t = chunk_test->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, face_test );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, chunk_test, direction, t );
+
+			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
+			if ( t <= 1 && t >= 0 && chunk_test->pointInFace( hitpoint, face_test ) ) {
+				midChunk = chunk_test;
+				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
+				++d_ahead;
+				++d_right;
+				continue;
+			}
+		}
+
+
+		//
+		// Bottom Edges (4)
+		//
+
+		if ( d_up < 0 && d_ahead > 0 ) { // bottom-front
+			EdgeChunk* chunk_test = midChunk->below->infront;
+			uchar face_test       = EdgeChunk::FACE_TOP;
+			t = chunk_test->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, face_test );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, chunk_test, direction, t );
+
+			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
+			if ( t <= 1 && t >= 0 && chunk_test->pointInFace( hitpoint, face_test ) ) {
+				midChunk = chunk_test;
+				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
+				++d_up;
+				--d_ahead;
+				continue;
+			}
+		}
+
+		if ( d_up < 0 && d_right > 0 ) { // bottom-right
+			EdgeChunk* chunk_test = midChunk->below->right;
+			uchar      face_test  = EdgeChunk::FACE_TOP;
+			t = chunk_test->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, face_test );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, chunk_test, direction, t );
+
+			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
+			if ( t <= 1 && t >= 0 && chunk_test->pointInFace( hitpoint, face_test ) ) {
+				midChunk = chunk_test;
+				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
+				++d_up;
+				--d_right;
+				continue;
+			}
+		}
+
+
+		if ( d_up < 0 && d_ahead < 0 ) { // bottom-back
+			EdgeChunk* chunk_test = midChunk->below->behind;
+			uchar face_test       = EdgeChunk::FACE_TOP;
+			t = chunk_test->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, face_test );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, chunk_test, direction, t );
+
+			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
+			if ( t <= 1 && t >= 0 && chunk_test->pointInFace( hitpoint, face_test ) ) {
+				midChunk = chunk_test;
+				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
+				++d_up;
+				++d_ahead;
+				continue;
+			}
+		}
+
+		if ( d_up < 0 && d_right < 0 ) { // bottom-left
+			EdgeChunk* chunk_test = midChunk->below->left;
+			uchar      face_test  = EdgeChunk::FACE_TOP;
+			t = chunk_test->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, face_test );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, chunk_test, direction, t );
+
+			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
+			if ( t <= 1 && t >= 0 && chunk_test->pointInFace( hitpoint, face_test ) ) {
+				midChunk = chunk_test;
+				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
+				++d_up;
+				++d_right;
+				continue;
+			}
+		}
+
+
+		//
+		// Corner Segments
+		///////////////////
+
+
+
+		//
+		// Top Corners (4)
+		//
+
+		if ( d_up > 0 && d_ahead > 0 && d_right > 0 ) { // top-front-right
+			EdgeChunk* chunk_test = midChunk->above->infront->right;
+			uchar face_test       = EdgeChunk::FACE_BOTTOM;
+			t = chunk_test->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, face_test );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, chunk_test, direction, t );
+
+			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
+			if ( t <= 1 && t >= 0 && chunk_test->pointInFace( hitpoint, face_test ) ) {
+				midChunk = chunk_test;
+				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
+				--d_up;
+				--d_ahead;
+				--d_right;
+				continue;
+			}
+		}
+
+
+		if ( d_up > 0 && d_ahead > 0 && d_right < 0 ) { // top-front-left
+			EdgeChunk* chunk_test = midChunk->above->infront->left;
+			uchar face_test       = EdgeChunk::FACE_BOTTOM;
+			t = chunk_test->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, face_test );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, chunk_test, direction, t );
+
+			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
+			if ( t <= 1 && t >= 0 && chunk_test->pointInFace( hitpoint, face_test ) ) {
+				midChunk = chunk_test;
+				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
+				--d_up;
+				--d_ahead;
+				++d_right;
+				continue;
+			}
+		}
+
+
+		if ( d_up > 0 && d_ahead < 0 && d_right > 0 ) { // top-back-right
+			EdgeChunk* chunk_test = midChunk->above->behind->right;
+			uchar face_test       = EdgeChunk::FACE_BOTTOM;
+			t = chunk_test->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, face_test );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, chunk_test, direction, t );
+
+			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
+			if ( t <= 1 && t >= 0 && chunk_test->pointInFace( hitpoint, face_test ) ) {
+				midChunk = chunk_test;
+				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
+				--d_up;
+				++d_ahead;
+				--d_right;
+				continue;
+			}
+		}
+
+
+		if ( d_up > 0 && d_ahead < 0 && d_right < 0 ) { // top-back-left
+			EdgeChunk* chunk_test = midChunk->above->behind->left;
+			uchar face_test       = EdgeChunk::FACE_BOTTOM;
+			t = chunk_test->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, face_test );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, chunk_test, direction, t );
+
+			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
+			if ( t <= 1 && t >= 0 && chunk_test->pointInFace( hitpoint, face_test ) ) {
+				midChunk = chunk_test;
+				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
+				--d_up;
+				++d_ahead;
+				++d_right;
+				continue;
+			}
+		}
+
+
+		//
+		// Bottom Corners (4)
+		//
+
+		if ( d_up < 0 && d_ahead > 0 && d_right > 0 ) { // bottom-front-right
+			EdgeChunk* chunk_test = midChunk->below->infront->right;
+			uchar face_test       = EdgeChunk::FACE_TOP;
+			t = chunk_test->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, face_test );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, chunk_test, direction, t );
+
+			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
+			if ( t <= 1 && t >= 0 && chunk_test->pointInFace( hitpoint, face_test ) ) {
+				midChunk = chunk_test;
+				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
+				++d_up;
+				--d_ahead;
+				--d_right;
+				continue;
+			}
+		}
+
+
+		if ( d_up < 0 && d_ahead > 0 && d_right < 0 ) { // bottom-front-left
+			EdgeChunk* chunk_test = midChunk->below->infront->left;
+			uchar face_test       = EdgeChunk::FACE_TOP;
+			t = chunk_test->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, face_test );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, chunk_test, direction, t );
+
+			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
+			if ( t <= 1 && t >= 0 && chunk_test->pointInFace( hitpoint, face_test ) ) {
+				midChunk = chunk_test;
+				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
+				++d_up;
+				--d_ahead;
+				++d_right;
+				continue;
+			}
+		}
+
+
+		if ( d_up < 0 && d_ahead < 0 && d_right > 0 ) { // bottom-back-right
+			EdgeChunk* chunk_test = midChunk->below->behind->right;
+			uchar face_test       = EdgeChunk::FACE_TOP;
+			t = chunk_test->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, face_test );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, chunk_test, direction, t );
+
+			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
+			if ( t <= 1 && t >= 0 && chunk_test->pointInFace( hitpoint, face_test ) ) {
+				midChunk = chunk_test;
+				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
+				++d_up;
+				++d_ahead;
+				--d_right;
+				continue;
+			}
+		}
+
+
+		if ( d_up < 0 && d_ahead < 0 && d_right < 0 ) { // bottom-back-left
+			EdgeChunk* chunk_test = midChunk->below->behind->left;
+			uchar face_test       = EdgeChunk::FACE_TOP;
+			t = chunk_test->edgeHitPoint( vp0, direction.v_x, direction.v_y, direction.v_z, face_test );
+			if ( t == 0 ) t = fit_t_in_chunk( vp0, chunk_test, direction, t );
+
+			hitpoint = Vertex( vp0.v_x + t*direction.v_x, vp0.v_y + t*direction.v_y, vp0.v_z + t*direction.v_z );
+			if ( t <= 1 && t >= 0 && chunk_test->pointInFace( hitpoint, face_test ) ) {
+				midChunk = chunk_test;
+				if ( !EdgeChunk::vectorContainsEdgeChunk( &containers, midChunk ) ) containers.push_back( midChunk );
+				++d_up;
+				++d_ahead;
+				++d_right;
+				continue;
+			}
+		}
+
+
+
+
+		// TODO: get rid of EPSILON?
+		// TODO: abstract the calculations
 
 		// it MUST hit at least one neighbour
 		assert(false);
@@ -939,21 +1394,6 @@ vector<EdgeTriTree::EdgeChunk*> EdgeTriTree::EdgeTriNode::getContainer(ushort p0
 
 	return chunks;
 }
-// ============================================== //
-
-
-// ============================================== //
-// void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
-// 
-// 	Tri* tri = new Tri(chunk, triIndex);
-// 	ushort p0 = chunk->triangleBuffer[triIndex].p0;
-// 	ushort p1 = chunk->triangleBuffer[triIndex].p1;
-// 	ushort p2 = chunk->triangleBuffer[triIndex].p2;
-// 	addTriangle( chunk, triIndex, p0, p1 );
-// 	addTriangle( chunk, triIndex, p1, p2 );
-// 	addTriangle( chunk, triIndex, p2, p0 );
-// 
-// }
 // ============================================== //
 
 
@@ -1047,8 +1487,6 @@ void Tri::reshapeTriOnEdge(ushort p0, ushort p1, ushort p0_new, ushort p1_new) {
 // ============================================== //
 void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 
-	// TODO:
-	// 	> find all edges along tri, and their associated information
 	
 	/* EdgeOfTri
 	 *
@@ -1056,7 +1494,9 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 	 * can be very specific for each edge (eg. one edge needs to be added to the tree, another edge has been found as a
 	 * smaller scale of an existing edge, the last edge is found as a larger scale of an existing edge). This struct
 	 * defines all the necessary information for each edge, which can later be handled accordingly (subdividing the
-	 * triangle, re-neighbouring, etc.)
+	 * triangle, re-neighbouring, etc.). If the added edge affects an existing edge/triangle then all necessary
+	 * manipulations on the existing edge/triangle will be handled in here (eg. edge subdivision, splitting &
+	 * re-neighbouring triangles)
 	 ***/
 	struct EdgeOfTri {
 
@@ -1130,9 +1570,7 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 		}
 
 		void touchingEdge(EdgeTriNode* edge) {
-			if (edge->p0 == 21 && edge->p1 == 65) {
-				Log("Touching edge again..");
-			}
+			// TODO: remove this..
 		}
 
 		// retrieve the edge(s) for this side of the Tri
@@ -2072,14 +2510,15 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 							Log(str(format("			Neighboured: Edge(p0) {%1%,%2%} w/ EdgeBot {%3%,%4%}")% 
 										edge->p0 % edge->p1 % edge_bot->p0 % edge_bot->p1 ));
 
-							edge_topsplit->p1_edges.push_back(edge_botsplit);
-							assertEdgeN( edge_topsplit->p1, edge_botsplit );
-							edge_botsplit->p1_edges.push_back(edge_topsplit);
-							assertEdgeN( edge_botsplit->p1, edge_topsplit );
-							Log(str(format("			Neighboured: EdgeTopSplit(p1) {%1%,%2%} w/ EdgeBotSplit {%3%,%4%}")% 
-										edge_topsplit->p0 % edge_topsplit->p1 % edge_botsplit->p0 % edge_botsplit->p1 ));
-							Log(str(format("			Neighboured: EdgeBotSplit(p1) {%1%,%2%} w/ EdgeTopSplit {%3%,%4%}")% 
-										edge_botsplit->p0 % edge_botsplit->p1 % edge_topsplit->p0 % edge_topsplit->p1 ));
+							// edge_topsplit->p1_edges.push_back(edge_botsplit); // skip this since it'll be added in
+							// the neighbouring below
+							// assertEdgeN( edge_topsplit->p1, edge_botsplit );
+							// edge_botsplit->p1_edges.push_back(edge_topsplit);
+							// assertEdgeN( edge_botsplit->p1, edge_topsplit );
+							// Log(str(format("			Neighboured: EdgeTopSplit(p1) {%1%,%2%} w/ EdgeBotSplit {%3%,%4%}")% 
+							// 			edge_topsplit->p0 % edge_topsplit->p1 % edge_botsplit->p0 % edge_botsplit->p1 ));
+							// Log(str(format("			Neighboured: EdgeBotSplit(p1) {%1%,%2%} w/ EdgeTopSplit {%3%,%4%}")% 
+							// 			edge_botsplit->p0 % edge_botsplit->p1 % edge_topsplit->p0 % edge_topsplit->p1 ));
 
 							assertBadNeighbours(edge);
 							assertBadNeighbours(edge_top);
@@ -2147,7 +2586,6 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 							assert( edge_p0p2_neighbouringElement );
 							assert( edge_p1p2_neighbouringElement );
 
-							assertBadNeighbours(e_edge);
 							assertBadNeighbours(edge_p1p2);
 							assertBadNeighbours(edge_p0p2);
 							assertBadNeighbours(edge_topsplit);
@@ -2721,6 +3159,26 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 				triangle.p1 % v1.v_x % v1.v_y % v1.v_z %
 				triangle.p2 % v2.v_x % v2.v_y % v2.v_z ));
 
+	// Is this a proper triangle?
+	glm::vec3 v0v1 = glm::normalize( glm::vec3( v1.v_x - v0.v_x, v1.v_y - v0.v_y, v1.v_z - v0.v_z ) );
+	glm::vec3 v0v2 = glm::normalize( glm::vec3( v2.v_x - v0.v_x, v2.v_y - v0.v_y, v2.v_z - v0.v_z ) );
+	glm::vec3 v1v0 = glm::normalize( glm::vec3( v0.v_x - v1.v_x, v0.v_y - v1.v_y, v0.v_z - v1.v_z ) );
+	glm::vec3 v1v2 = glm::normalize( glm::vec3( v2.v_x - v1.v_x, v2.v_y - v1.v_y, v2.v_z - v1.v_z ) );
+	glm::vec3 v2v0 = glm::normalize( glm::vec3( v0.v_x - v2.v_x, v0.v_y - v2.v_y, v0.v_z - v2.v_z ) );
+	glm::vec3 v2v1 = glm::normalize( glm::vec3( v1.v_x - v2.v_x, v1.v_y - v2.v_y, v1.v_z - v2.v_z ) );
+	Vertex _v0v1 = Vertex( v0v1.x, v0v1.y, v0v1.z );
+	Vertex _v0v2 = Vertex( v0v2.x, v0v2.y, v0v2.z );
+	Vertex _v1v0 = Vertex( v1v0.x, v1v0.y, v1v0.z );
+	Vertex _v1v2 = Vertex( v1v2.x, v1v2.y, v1v2.z );
+	Vertex _v2v0 = Vertex( v2v0.x, v2v0.y, v2v0.z );
+	Vertex _v2v1 = Vertex( v2v1.x, v2v1.y, v2v1.z );
+	if ( _v0v1 == _v1v2 || _v0v1 == _v2v1 ||
+		 _v0v2 == _v2v1 || _v0v2 == _v1v2 ||
+		 _v1v0 == _v0v2 || _v1v0 == _v2v0 ) {
+		Log(str(format("	THIS TRIANGLE WAS BAD BAD BAD!!! IT WAS A LINE!!!")));
+		return;
+	}
+
 	triEdge_p0p1 = new EdgeOfTri( triangle.p0, triangle.p1, chunk );
 	triEdge_p1p2 = new EdgeOfTri( triangle.p1, triangle.p2, chunk );
 	triEdge_p2p0 = new EdgeOfTri( triangle.p2, triangle.p0, chunk );
@@ -2748,102 +3206,7 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 		assert( edge_p1p2->p1_edges.size() );
 		assert( edge_p2p0->p0_edges.size() );
 		assert( edge_p2p0->p1_edges.size() );
-		/*
-		 * TODO: edges are already neighboured together; when they were created they checked for existing edges to
-		 * attach to
-		if ( edge_p0p1->p0 == edge_p2p0->p0 || edge_p0p1->p0 == edge_p2p0->p1 ) {
-			edge_p0p1->p0_edges.push_back( edge_p2p0 );
-			edge_p0p1->p1_edges.push_back( edge_p1p2 );
 
-			if ( edge_p2p0->p0 == edge_p0p1->p0 ) {
-				edge_p2p0->p0_edges.push_back( edge_p0p1 );
-				edge_p2p0->p1_edges.push_back( edge_p1p2 );
-
-				if ( edge_p1p2->p0 == edge_p0p1->p1 ) {
-					edge_p1p2->p0_edges.push_back( edge_p0p1 );
-					edge_p1p2->p1_edges.push_back( edge_p2p0 );
-				} else {
-					edge_p1p2->p0_edges.push_back( edge_p2p0 );
-					edge_p1p2->p1_edges.push_back( edge_p1p2 );
-				}
-			} else {
-				edge_p2p0->p1_edges.push_back( edge_p0p1 );
-				edge_p2p0->p0_edges.push_back( edge_p1p2 );
-
-				if ( edge_p1p2->p0 == edge_p0p1->p1 ) {
-					edge_p1p2->p0_edges.push_back( edge_p0p1 );
-					edge_p1p2->p1_edges.push_back( edge_p2p0 );
-				} else {
-					edge_p1p2->p0_edges.push_back( edge_p2p0 );
-					edge_p1p2->p1_edges.push_back( edge_p1p2 );
-				}
-			}
-
-			triEdge_p0p1->assertBadNeighbours( edge_p0p1 );
-			triEdge_p0p1->assertBadNeighbours( edge_p1p2 );
-			triEdge_p0p1->assertBadNeighbours( edge_p2p0 );
-
-		} else if ( edge_p0p1->p1 == edge_p2p0->p0 || edge_p0p1->p1 == edge_p2p0->p1 ) {
-
-			edge_p0p1->p1_edges.push_back( edge_p2p0 );
-			edge_p0p1->p0_edges.push_back( edge_p1p2 );
-
-			if ( edge_p2p0->p0 == edge_p0p1->p1 ) {
-				edge_p2p0->p0_edges.push_back( edge_p0p1 );
-				edge_p2p0->p1_edges.push_back( edge_p1p2 );
-
-				if ( edge_p1p2->p0 == edge_p0p1->p0 ) {
-					edge_p1p2->p0_edges.push_back( edge_p0p1 );
-					edge_p1p2->p1_edges.push_back( edge_p2p0 );
-				} else {
-					edge_p1p2->p0_edges.push_back( edge_p2p0 );
-					edge_p1p2->p1_edges.push_back( edge_p1p2 );
-				}
-			} else {
-				edge_p2p0->p1_edges.push_back( edge_p0p1 );
-				edge_p2p0->p0_edges.push_back( edge_p1p2 );
-
-				if ( edge_p1p2->p0 == edge_p0p1->p0 ) {
-					edge_p1p2->p0_edges.push_back( edge_p0p1 );
-					edge_p1p2->p1_edges.push_back( edge_p2p0 );
-				} else {
-					edge_p1p2->p0_edges.push_back( edge_p2p0 );
-					edge_p1p2->p1_edges.push_back( edge_p1p2 );
-				}
-			}
-
-			triEdge_p0p1->assertBadNeighbours( edge_p0p1 );
-			triEdge_p0p1->assertBadNeighbours( edge_p1p2 );
-			triEdge_p0p1->assertBadNeighbours( edge_p2p0 );
-
-		} else {
-			assert(false); // edge_p0p1 does NOT match edge_p2p0 on either point
-		}
-		*/
-
-		// if (triEdge_p0p1->edges.front()->flippedEdge) {
-		// 	triEdge_p0p1->edges.front()->edge->p1_edges.push_back( triEdge_p2p0->edges.front()->edge );
-		// 	triEdge_p0p1->edges.front()->edge->p0_edges.push_back( triEdge_p1p2->edges.front()->edge );
-		// } else {
-			// triEdge_p0p1->edges.front()->edge->p1_edges.push_back( triEdge_p1p2->edges.front()->edge );
-			// triEdge_p0p1->edges.front()->edge->p0_edges.push_back( triEdge_p2p0->edges.front()->edge );
-		// }
-
-		// if (triEdge_p1p2->edges.front()->flippedEdge) {
-		// 	triEdge_p1p2->edges.front()->edge->p1_edges.push_back( triEdge_p0p1->edges.front()->edge );
-		// 	triEdge_p1p2->edges.front()->edge->p0_edges.push_back( triEdge_p2p0->edges.front()->edge );
-		// } else {
-			// triEdge_p1p2->edges.front()->edge->p1_edges.push_back( triEdge_p2p0->edges.front()->edge );
-			// triEdge_p1p2->edges.front()->edge->p0_edges.push_back( triEdge_p0p1->edges.front()->edge );
-		// }
-
-		// if (triEdge_p2p0->edges.front()->flippedEdge) {
-		// 	triEdge_p2p0->edges.front()->edge->p1_edges.push_back( triEdge_p1p2->edges.front()->edge );
-		// 	triEdge_p2p0->edges.front()->edge->p0_edges.push_back( triEdge_p0p1->edges.front()->edge );
-		// } else {
-			// triEdge_p2p0->edges.front()->edge->p1_edges.push_back( triEdge_p0p1->edges.front()->edge );
-			// triEdge_p2p0->edges.front()->edge->p0_edges.push_back( triEdge_p1p2->edges.front()->edge );
-		// }
 		triEdge_p0p1->assertBadNeighbours(triEdge_p0p1->edges.front()->edge);
 		triEdge_p1p2->assertBadNeighbours(triEdge_p1p2->edges.front()->edge);
 		triEdge_p2p0->assertBadNeighbours(triEdge_p2p0->edges.front()->edge);
@@ -2883,7 +3246,6 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 				vector<EdgeTriNode*> edges;
 				for ( auto some_edge : container->edges ) {
 					if (pt == some_edge->p0 || pt == some_edge->p1) continue;
-					// Log(str(format("		considering edge (%1%,%2%)")%some_edge->p0%some_edge->p1));
 					Vertex e_p0 = terrain->vertexBuffer[some_edge->p0];
 					Vertex e_p1 = terrain->vertexBuffer[some_edge->p1];
 
@@ -2923,10 +3285,6 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 						} else {
 							if (tx != ty || tx != tz || ty != tz) continue;
 						}
-
-						// Log(str(format("			dx: %1%   dy: %2%   dz: %3%     t: %4%")%dx%dy%dz%t));
-						// if ( dy / t != (e_p1.v_y - p0.v_y) ) continue;
-						// if ( dz / t != (e_p1.v_z - p0.v_z) ) continue;
 
 						edges.push_back( some_edge );
 					}
@@ -3027,343 +3385,6 @@ void EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex) {
 		}
 
 	}
-
-	/*
-	// TODO: Create new edges between results (each side's extra points create a new edge to the p1 point of the
-	// following side)
-	// TODO: for each *extra* edge on a side (n-1) create a new Tri for it & add to edges
-	// TODO: create main Tri & add to edges
-	// TODO: `
-	// TODO: add our new Tri(s), subdivide the Triangle as necessary, add to the correct edges, add new necessary edges
-	// (ones that lay on the inner-volume of the triangle), connect edges to graph & containers, neighbour Tri's
-	// properly
-
-
-
-	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	// TODO: remove below
-
-	Tri* addedTri;
-	if ( referenceTri ) {
-		addedTri = (*referenceTri);
-	}
-
-	Vertex vp0 = terrain->vertexBuffer[p0];
-	Vertex vp1 = terrain->vertexBuffer[p1];
-	Vertex direction = Vertex( vp1.v_x - vp0.v_x, vp1.v_y - vp0.v_y, vp1.v_z - vp0.v_z );
-	glm::vec3 dir_vec = glm::normalize(glm::vec3( vp1.v_x - vp0.v_x, vp1.v_y - vp0.v_y, vp1.v_z - vp0.v_z ));
-	vector<EdgeChunk*> containers = EdgeTriNode::getContainers(p0, p1);
-
-	// check all edges in containers to see if there are any potentially matching edges
-	// 	ie. this edge is a subdivided portion of another edge, or vice versa
-	vector<EdgeTriNode*> potentialMatches;
-	for ( auto chunk : containers ) {
-		for ( auto e_edge : chunk->edges ) {
-			Vertex e_p0  = terrain->vertexBuffer[e_edge->p0];
-			Vertex e_p1  = terrain->vertexBuffer[e_edge->p1];
-
-			// same direction?
-			glm::vec3 e_dir_vec = glm::normalize(glm::vec3( e_p1.v_x - e_p0.v_x, e_p1.v_y - e_p0.v_y, e_p1.v_z - e_p0.v_z ));
-			if ( dir_vec == e_dir_vec || dir_vec == -1*e_dir_vec ) {
-
-				// are they parallel or apart of the same continuous line?
-				e_dir_vec = glm::normalize(glm::vec3( e_p1.v_x - vp0.v_x, e_p1.v_y - e_p0.v_y, e_p1.v_z - e_p0.v_z ));
-				if ( dir_vec == e_dir_vec || dir_vec == -1*e_dir_vec ) {
-
-					bool alreadyAdded = false;
-					for ( auto ep_edge : potentialMatches ) {
-						if ( ep_edge == e_edge ) {
-							alreadyAdded = true;
-							break;
-						}
-					}
-
-					if ( !alreadyAdded ) potentialMatches.push_back( e_edge );
-				}
-
-			}
-
-		}
-	}
-
-	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	// WARNING WARNING WARNING WARNING WARNING WARNING!
-	// TODO: the Tri is added 3x (one for each edge); to save on memory and safety concerns, check against connected
-	// Tri's to see if the same Tri already exists, then simply use that one instead of adding a new one
-	// WARNING WARNING WARNING WARNING WARNING WARNING!
-	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-	// potential matches have same direction; does either edge have point p0 that lays within the edge?
-	for ( auto e_edge : potentialMatches ) {
-		// Edge (parametric): x = at + x0; ...
-		Vertex e_p0  = terrain->vertexBuffer[e_edge->p0];
-		Vertex e_p1  = terrain->vertexBuffer[e_edge->p1];
-		
-		// TODO: avoid VERTEX based == comparisons, use indices instead
-
-	//  - merge edges: add on left/right side? merge edges (use the bigger edge); add to nodesNeedSubdividing
-		if ( p0 == e_edge->p0 && p1 == e_edge->p1 ) {
-
-			// add triangle
-			Triangle tri = chunk->triangleBuffer[triIndex];
-			bool leftSide = true;
-			ushort triPoint_p2;
-			if ( !addedTri ) {
-				addedTri = new Tri( chunk, triIndex );
-				(*referenceTri) = addedTri;
-			}
-			if ( (tri.p0 == p0 && tri.p1 == p1) ||
-				 (tri.p1 == p0 && tri.p2 == p1) ||
-				 (tri.p2 == p0 && tri.p0 == p1) ) { // left side
-				e_edge->triangle_p0p1 = addedTri;
-				addedTri->neighbour_p0p1 = e_edge->triangle_p1p0;
-				if ( e_edge->triangle_p1p0 ) e_edge->triangle_p1p0->neighbour_p0p1 = addedTri;
-				triPoint_p2 = addedTri->getOddPoint( p0, p1 );
-			} else { // right side
-				e_edge->triangle_p1p0 = addedTri;
-				addedTri->neighbour_p1p0 = addedTri;
-				if ( e_edge->triangle_p0p1 ) e_edge->triangle_p0p1->neighbour_p1p0 = addedTri;
-				leftSide = false;
-				triPoint_p2 = addedTri->getOddPoint( p0, p1 );
-			}
-
-			// TODO: find any neighbour triangles (neighbour edges whose unshared point is a point on this triangle)
-			for ( auto neighbour_edge : e_edge->p0_edges ) {
-				ushort matchedPoint, unmatchedPoint;
-				bool neighbourFlipped = false;
-				if ( neighbour_edge->p0 == p0 ) {
-					matchedPoint   = p0;
-					unmatchedPoint = p1;
-					neighbourFlipped = true;
-				} else {
-					matchedPoint   = p1;
-					unmatchedPoint = p0;
-				}
-
-				if ( unmatchedPoint == triPoint_p2 ) {
-					Tri** neighbourTri = ((leftSide ^ neighbourFlipped) ? (&neighbour_edge->triangle_p0p1) : (&neighbour_edge->triangle_p1p0));
-					if ((*neighbourTri)) {
-						Tri** neighbourTri_neighbourEdge = (*neighbourTri)->getNeighbourOnEdge( matchedPoint, unmatchedPoint );
-						(*addedTri->getNeighbourOnEdge( matchedPoint, unmatchedPoint )) = (*neighbourTri);
-						(*neighbourTri_neighbourEdge) = addedTri;
-					}
-				}
-			}
-			for ( auto neighbour_edge : e_edge->p1_edges ) {
-				// TODO
-			}
-
-			break;
-		} else if ( vp1 == e_p0 && vp0 == e_p1 ) {
-			// TODO: add triangle
-			break;
-		} else if ( vp0.between( e_p0, e_p1 ) && vp1.between( e_p0, e_p1 ) ) {
-			// this is a subdivision of the existing edge
-
-			// Remove existing edge from all containers
-			vector<EdgeChunk*> e_containers = e_edge->getContainers();
-			for ( auto container : e_containers ) {
-				int i = 0;
-				for ( auto some_edge : container->edges ) {
-					if ( some_edge == e_edge ) {
-						break;
-					}
-					++i;
-				}
-				container->edges.erase( container->edges.begin() + i );
-			}
-
-			// Disconnect edge from graph
-			for ( auto neighbour_edge : e_edge->p0_edges ) {
-				int i = 0;
-				vector<EdgeTriNode*>* neighbourConnection;
-				if ( neighbour_edge->p0 == e_edge->p0 ) {
-					neighbourConnection = &neighbour_edge->p0_edges;
-				} else {
-					neighbourConnection = &neighbour_edge->p1_edges;
-				}
-
-				for ( auto some_edge : *neighbourConnection ) {
-					if ( some_edge == e_edge ) {
-						break;
-					}
-					++i;
-				}
-				neighbourConnection->erase( neighbourConnection->begin() + i );
-			}
-
-			// Create new edge
-			EdgeTriNode* edge = new EdgeTriNode();
-			edge->p0 = p0;
-			edge->p1 = p1;
-
-			// left or right side?
-			Triangle tri = chunk->triangleBuffer[triIndex];
-			bool leftSide = true;
-			Triangle* e_tri;
-			if ( (tri.p0 == p0 && tri.p1 == p1) ||
-					(tri.p1 == p0 && tri.p2 == p1) ||
-					(tri.p2 == p0 && tri.p0 == p1) ) {
-				// left side
-				edge->triangle_p0p1 = new Tri( chunk, triIndex );
-
-			} else {
-				// right side
-				edge->triangle_p1p0 = new Tri( chunk, triIndex );
-				leftSide = false;
-
-			}
-
-			// TODO: subdivide triangle
-			// NOTE: this edge could lay on the left end of the edge, on the right end of the edge, or inbetween the
-			// edge while not touching either the left or right ends
-			// Triangle gets cut from p0 to tp0 (its p0 on the line); tp0 to tp1; tp1 to p1 (3 cuts)
-			// Triangle could also be cut from p0 to tp0, tp1 to p1  (2 cuts)
-			Tri* e_tri = (leftSide?e_edge->triangle_p1p0:e_edge->triangle_p0p1);
-			Vertex evp0 = terrain->vertexBuffer[e_tri->p0];
-			Vertex evp1 = terrain->vertexBuffer[e_tri->p1];
-			Vertex evp2 = terrain->vertexBuffer[e_tri->p2];
-			ushort p2 = e_tri->getOddPoint(e_p0, e_p1);
-
-			// vp0, vp1 [p0,p1] refer to the new edge p0/p1
-			// e_p0, e_p1 [e_edge->p0,e_edge->p1] refer to the existing edges p0 and p1
-			// evp0, evp1, evp2 refer to the existing triangle's p0/p1/p2
-			if ( vp0 == e_p0 ) {
-				if (leftSide) {
-					// TODO: (2 cuts); e_p0->vp2, vp2->e_p1
-				} else {
-					// TODO: (2 cuts); e_p0->vp1, vp1->e_p1
-				}
-			} else if ( vp1 == e_p0 ) {
-				if (leftSide) {
-					// TODO: (2 cuts); e_p0->vp0, vp0->e_p1
-				} else {
-					// TODO: (2 cuts); e_p0->vp2, vp2->e_p1
-				}
-			} else {
-
-				if ( vp0.between( e_p0, vp1 ) ) {
-					// vp0 is closer to e_p0; hence e_p0->vp0 for first subdivision
-					// TODO: (3 cuts); e_p0->vp0, vp0->vp1, vp1->e_p1
-					if (leftSide) {
-
-						// Subdivide (lower tri): e_p0->vp0
-						e_tri->chunk->triangleBuffer.push_back( Triangle( e_edge->p0, p2, p0 ) );
-						ushort subTri_ep0vp0i = e_tri->chunk->triangleBuffer.size() - 1;
-						Tri* subTri_ep0vp0 = new Tri( e_tri->chunk, subTri_ep0vp0i );
-
-						// Subdivide (higher tri): vp1->e_p1
-						e_tri->chunk->triangleBuffer.push_back( Triangle( p1, p2, e_edge->p1 ) );
-						ushort subTri_ep1vp1i = e_tri->chunk->triangleBuffer.size() - 1;
-						Tri* subTri_ep1vp1 = new Tri( e_tri->chunk, subTri_ep1vp1i );
-
-						// Subdivide (middle tri): vp0->vp1
-						// NOTE: edit the existing triangle to avoid deleting it from list
-						uchar e_tri_pointsOnEdge;
-						if ( e_tri->p0 == e_edge->p1 ) {
-							e_tri->chunk->triangleBuffer[e_tri->triIndex].p0 = edge->p0;
-							e_tri->chunk->triangleBuffer[e_tri->triIndex].p1 = edge->p1;
-							e_tri->p0 = edge->p0;
-							e_tri->p1 = edge->p1;
-							e_tri_pointsOnEdge = 0;
-						} else if ( e_tri->p1 == e_edge->p1 ) {
-							e_tri->chunk->triangleBuffer[e_tri->triIndex].p1 = edge->p0;
-							e_tri->chunk->triangleBuffer[e_tri->triIndex].p2 = edge->p1;
-							e_tri->p1 = edge->p0;
-							e_tri->p2 = edge->p1;
-							e_tri_pointsOnEdge = 1;
-						} else {
-							e_tri->chunk->triangleBuffer[e_tri->triIndex].p2 = edge->p0;
-							e_tri->chunk->triangleBuffer[e_tri->triIndex].p0 = edge->p1;
-							e_tri->p2 = edge->p0;
-							e_tri->p0 = edge->p1;
-							e_tri_pointsOnEdge = 2;
-						}
-
-
-						// neighbouring
-						if ( e_tri_pointsOnEdge == 0 ) {
-							subTri_ep0vp0->neighbour_p2p0 = e_tri->neighbour_p2p0;
-							if ( subTri_ep0vp0->neighbour_p2p0 ) subTri_ep0vp0->neighbour_p2p0->neighbour_p1p2 = subTri_ep0vp0;
-							subTri_ep1vp1->neighbour_p1p2 = e_tri->neighbour_p1p2;
-							if ( subTri_ep1vp1->neighbour_p1p2 ) subTri_ep1vp1->neighbour_p1p2->neighbour_p2p0 = subTri_ep1vp1;
-
-							e_tri->neighbour_p2p0 = subTri_ep0vp0;
-							subTri_ep0vp0->neighbour_p1p2 = e_tri;
-
-							e_tri->neighbour_p1p2 = subTri_ep1vp1;
-							subTri_ep1vp1->neighbour_p2p0 = e_tri;
-
-							e_tri->neighbour_p0p1 = edge->triangle_p0p1;
-							if ( edge->triangle_p0p1->p0 == e_edge->p0 ) {
-								edge->triangle_p0p1->neighbour_p0p1 = e_tri;
-							} else if ( edge->triangle_p0p1->p1 == e_edge->p0 ) {
-								edge->triangle_p0p1->neighbour_p1p2 = e_tri;
-							} else {
-								edge->triangle_p0p1->neighbour_p2p0 = e_tri;
-							}
-						}
-
-						// add new tri's
-						addTriangle( e_tri->chunk, subTri_ep0vp0i, e_edge->p0, p0 );
-						addTriangle( e_tri->chunk, subTri_ep1vp1i, p1, e_edge->p1 );
-
-						// add new edge
-						edge->triangle_p1p0 = e_tri;
-						for ( auto container : containers ) {
-							container->edges.push_back( edge );
-						}
-						delete e_edge;
-
-					} else {
-						if (leftSide) {
-
-						} else {
-
-						}
-					}
-				} else {
-					// vp1 is closer to e_p0; hence e_p0->vp1 for first subdivision
-					// TODO: (3 cuts); e_p0->vp1, vp1->vp0, vp0->e_p1
-				}
-			}
-
-			break;
-		} else if ( e_p0.between( vp0, vp1 ) && e_p1.between( vp0, vp1 ) ) {
-			// existing edge is a subdivision of this edge
-			// TODO
-
-			break;
-		}
-	}
-
-	// Find edges from end-points which match our end points; then neighbour edges
-	EdgeChunk* p0Container = EdgeTriNode::getContainer( p0 ); // TODO: p0Container is first in containers?
-	EdgeChunk* p1Container = EdgeTriNode::getContainer( p1 ); // TODO: p1Container is last in containers?
-
-	// Connected edge to graph
-	for ( auto some_edge : p0Container->edges ) {
-		if ( some_edge->p0 == p0 ) {
-			some_edge->p0_edges.push_back( edge );
-		} else if ( some_edge->p1 == p0 ) {
-			some_edge->p1_edges.push_back( edge );
-		}
-	}
-	for ( auto some_edge : p1Container->edges ) {
-		if ( some_edge->p0 == p1 ) {
-			some_edge->p0_edges.push_back( edge );
-		} else if ( some_edge->p1 == p1 ) {
-			some_edge->p1_edges.push_back( edge );
-		}
-	}
-
-
-	// Add edge to each chunk
-	for ( auto container : containers ) {
-		container->edges.push_back( edge );
-	}
-	*/
 }
 // ============================================== //
 
@@ -3449,348 +3470,6 @@ bool EdgeTriTree::EdgeChunk::pointInFace(Vertex hitpoint, uchar face) {
 
 
 // ============================================== //
-/*
-void EdgeTriTree::EdgeTriNode::subdivideTriangles() {
-
-	// TODO: subdivide: create new tris for each neighbouring
-	//		> loop through on each side, from p0 to (p1X, p1Y) nearest to p0, create new tri on opposite side &
-	//		  neighbour tris, create new EdgeTriNode w/ tris (dont add to tree yet)
-	//		  	> SIDE: find tri connected to p0, find its p1 (between p0 and p1), set p1 as new p0 point in next
-	//		  	  iteration; 
-
-	// TODO: either side is empty? skip
-	
-	ushort endPoint = p0;
-	vector<EdgeTriNode*> edgeSubdivisions;
-	while ( endPoint != p1 ) {
-		
-		// subdivided edge
-		EdgeTriNode* edge = new EdgeTriNode();
-		edge->p0 = endPoint;
-
-		// find the two triangles in question (on either side)
-		Tri* associatedLeftTri  = 0;
-		Tri* associatedRightTri = 0;
-		Tri* leftTriNeighbour = 0;
-		Tri* rightTriNeighbour = 0;
-		ushort leftTri_p0,  leftTri_p1,  leftTri_p2,  left_p1_p,  left_index;
-		ushort rightTri_p0, rightTri_p1, rightTri_p2, right_p1_p, right_index;
-		left_index = 0;
-		right_index = 0;
-		for ( auto tri : triangles_p0p1 ) {
-			if ( tri->p0 == endPoint ) {
-				associatedLeftTri = tri;
-				leftTri_p0 = tri->p0;
-				leftTri_p1 = tri->p1;
-				leftTri_p2 = tri->p2;
-				left_p1_p  = 1;
-				leftTriNeighbour = tri->neighbour_p0p1;
-				break;
-			} else if ( tri->p1 == endPoint ) {
-				associatedLeftTri = tri;
-				leftTri_p0 = tri->p1;
-				leftTri_p1 = tri->p2;
-				leftTri_p2 = tri->p0;
-				left_p1_p  = 2;
-				leftTriNeighbour = tri->neighbour_p1p2;
-				break;
-			} else if ( tri->p2 == endPoint ) {
-				associatedLeftTri = tri;
-				leftTri_p0 = tri->p2;
-				leftTri_p1 = tri->p0;
-				leftTri_p2 = tri->p1;
-				left_p1_p  = 0;
-				leftTriNeighbour = tri->neighbour_p2p0;
-				break;
-			}
-			++left_index;
-		}
-		for ( auto tri : triangles_p1p0 ) {
-			// WARNING WARNING WARNING WARNING WARNING WARNING WARNING
-			// Remember this is the OTHER side of the edge, which means we must view this triangle in clockwise form for
-			// p1
-			// WARNING WARNING WARNING WARNING WARNING WARNING WARNING
-			if ( tri->p0 == endPoint ) {
-				associatedRightTri = tri;
-				rightTri_p0 = tri->p0;
-				rightTri_p1 = tri->p2;
-				rightTri_p2 = tri->p1;
-				right_p1_p  = 2;
-				rightTriNeighbour = tri->neighbour_p2p0;
-				break;
-			} else if ( tri->p1 == endPoint ) {
-				associatedRightTri = tri;
-				rightTri_p0 = tri->p1;
-				rightTri_p1 = tri->p0;
-				rightTri_p2 = tri->p2;
-				right_p1_p  = 0;
-				rightTriNeighbour = tri->neighbour_p0p1;
-				break;
-			} else if ( tri->p2 == endPoint ) {
-				associatedRightTri = tri;
-				rightTri_p0 = tri->p2;
-				rightTri_p1 = tri->p1;
-				rightTri_p2 = tri->p0;
-				right_p1_p  = 1;
-				rightTriNeighbour = tri->neighbour_p1p2;
-				break;
-			}
-			++right_index;
-		}
-
-		
-		if ( leftTri_p1 == rightTri_p1 ) {
-			edge->p1 = leftTri_p1;
-			edge->triangles_p0p1.push_back( associatedLeftTri );
-			edge->triangles_p1p0.push_back( associatedRightTri );
-			*leftTriNeighbour = associatedRightTri;
-			*rightTriNeighbour = associatedLeftTri;
-			endPoint = leftTri_p1;
-
-			// TODO: save deleted triangles (left/right)
-		} else {
-			// which p1 is nearest to p0
-			// edge: (p1-p0)t + p0 = {left,right}_p1
-			Terrain* terrain = associatedLeftTri->chunk->terrain;
-			Vertex left_p1 = terrain->vertexBuffer[leftTri_p1]
-			Vertex right_p1 = terrain->vertexBuffer[rightTri_p1]
-			Vertex endp0 = terrain->vertexBuffer[p0];
-			Vertex endp1 = terrain->vertexBuffer[p1];
-
-			glm::vec3 direction = glm::vec3( endp1.v_x - endp0.v_x, endp1.v_y - endp0.v_y, endp1.v_z - endp0.v_z );
-			glm::vec3 origin    = glm::vec3( endp0.v_x, endp0.v_y, endp0.v_z );
-			glm::vec3 left_vp1  = glm::vec3( left_p1.v_x, left_p1.v_y, left_p1.v_z );
-			glm::vec3 right_vp1 = glm::vec3( right_p1.v_x, right_p1.v_y, right_p1.v_z );
-			float left_t  = (left_vp1 - origin).length / direction.length;
-			float right_t = (right_vp1 - origin).length / direction.length;
-
-
-
-
-
-			// TODO: subdivide other triangle (save in new triangle's list for adding to chunk; save old triangle for
-			// 			deletion; add split triangle into current tri-list for next iteration search)
-			if ( left_t < right_t ) { // TODO: merge w/ right/left handling
-				// right triangle needs to be subdivided to meet the left triangle's point
-
-				// TODO: create new edge
-				edge->p1 = leftTri_p1;
-
-				// TODO: create subdivided triangle for new edge
-				// SUBDIVIDED TRIANGLE: resize triangle to remove its new subdivision
-				if ( right_p1_p == 0 ) {
-					associatedRightTri->chunk->triangleBuffer[associatedRightTri->triIndex].p0 = leftTri_p1;
-					associatedRightTri->p0 = leftTri_p1;
-				} else if ( right_p1_p == 1 ) {
-					associatedRightTri->chunk->triangleBuffer[associatedRightTri->triIndex].p1 = leftTri_p1;
-					associatedRightTri->p1 = leftTri_p1;
-				} else {
-					associatedRightTri->chunk->triangleBuffer[associatedRightTri->triIndex].p2 = leftTri_p1;
-					associatedRightTri->p2 = leftTri_p1;
-				}
-
-				// SUBDIVIDED TRIANGLE: new triangle to fit within the subdivided edge
-				associatedRightTri->chunk->triangleBuffer.push_back( Triangle( rightTri_p0, rightTri_p1, leftTri_p1 ) );
-				Tri* triIn = new Tri( associatedRightTri->chunk, associatedRightTri->chunk->triangleBuffer.size() - 1 );
-				edge->triangles_p1p0.push_back( triIn );
-
-				// TODO: add & neighbour tri's to edge
-				edge->triangles_p0p1.push_back( associatedLeftTri );
-				triangles_p0p1.erase( triangles_p0p1.begin()+left_index );
-				
-				*leftTriNeighbour = triIn;
-				if ( right_p1_p == 0 ) {
-					rightTriNeighbour = triIn->neighbour_p0p1;
-				} else if ( right_p1_p == 1 ) {
-					rightTriNeighbour = triIn->neighbour_p1p2;
-				} else {
-					rightTriNeighbour = triIn->neighbour_p2p0;
-				}
-				*rightTriNeighbour = associatedLeftTri;
-
-				// TODO: save new triangles, save deleted triangle (left), save new edge
-				edgeSubdivisions.push_back( edge );
-
-				// TODO: endpoint is leftTri_p1
-				endPoint = leftTri_p1;
-			} else { // TODO: merge w/ right/left handling
-				// left triangle needs to be subdivided to meet the right triangle's point
-
-				// TODO: create new edge
-				edge->p1 = rightTri_p1;
-
-				// TODO: create subdivided triangle for new edge
-				// SUBDIVIDED TRIANGLE: resize triangle to remove its new subdivision
-				if ( left_p1_p == 0 ) {
-					associatedLeftTri->chunk->triangleBuffer[associatedLeftTri->triIndex].p0 = rightTri_p1;
-					associatedLeftTri->p0 = rightTri_p1;
-				} else if ( left_p1_p == 1 ) {
-					associatedLeftTri->chunk->triangleBuffer[associatedLeftTri->triIndex].p1 = rightTri_p1;
-					associatedLeftTri->p1 = rightTri_p1;
-				} else {
-					associatedLeftTri->chunk->triangleBuffer[associatedLeftTri->triIndex].p2 = rightTri_p1;
-					associatedLeftTri->p2 = rightTri_p1;
-				}
-
-				// SUBDIVIDED TRIANGLE: new triangle to fit within the subdivided edge
-				associatedLeftTri->chunk->triangleBuffer.push_back( Triangle( leftTri_p0, rightTri_p1, leftTri_p2 ) );
-				Tri* triIn = new Tri( associatedLeftTri->chunk, associatedLeftTri->chunk->triangleBuffer.size() - 1 );
-				edge->triangles_p0p1.push_back( triIn );
-
-				// TODO: add & neighbour tri's to edge
-				edge->triangles_p1p0.push_back( associatedRightTri );
-				triangles_p1p0.erase( triangles_p1p0.begin()+right_index );
-				
-				*rightTriNeighbour = triIn;
-				if ( left_p1_p == 0 ) {
-					leftTriNeighbour = triIn->neighbour_p0p1;
-				} else if ( left_p1_p == 1 ) {
-					leftTriNeighbour = triIn->neighbour_p1p2;
-				} else {
-					leftTriNeighbour = triIn->neighbour_p2p0;
-				}
-				*leftTriNeighbour = associatedRightTri;
-
-				// TODO: save new triangles, save deleted triangle (left), save new edge
-				edgeSubdivisions.push_back( edge );
-
-				// TODO: endpoint is leftTri_p1
-				endPoint = leftTri_p1;
-
-			}
-
-		}
-
-
-	} 
-
-	// TODO: replace old edge with subdivided edges
-	for ( auto edge : edgeSubdivisions ) {
-		ushort p0 = edge->p0,
-			   p1 = edge->p1;
-
-		// find point node
-		PointNode* startPoint = cachedPoint;
-		PointNode* nodePoint = 0;
-		while ( startPoint ) {
-			if ( startPoint->p0 == p0 ) {
-				nodePoint = startPoint;
-				break;
-			} else if ( startPoint->p0 < p0 ) {
-				if ( startPoint->rightPoint && startPoint->rightPoint->p0 > p0 ) {
-					// node point between these nodes
-					nodePoint = new PointNode();
-					nodePoint->rightPoint = startPoint->rightPoint;
-					nodePoint->rightPoint->leftPoint = nodePoint;
-					nodePoint->leftPoint = startPoint;
-					startPoint->rightPoint = nodePoint;
-					nodePoint->p0 = p0;
-					break;
-				}
-
-				if ( startPoint->rightPoint ) {
-					startPoint = startPoint->rightPoint;
-				} else {
-					// node point on the end
-					nodePoint = new PointNode();
-					nodePoint->leftPoint = startPoint;
-					startPoint->rightPoint = nodePoint;
-					nodePoint->p0 = p0;
-					break;
-				}
-			} else {
-				if ( startPoint->leftPoint && startPoint->leftPoint->p0 < p0 ) {
-					// node point between these nodes
-					nodePoint = new PointNode();
-					nodePoint->leftPoint = startPoint->leftPoint;
-					nodePoint->leftPoint->rightPoint = nodePoint;
-					nodePoint->rightPoint = startPoint;
-					startPoint->leftPoint = nodePoint;
-					nodePoint->p0 = p0;
-					break;
-				}
-
-				if ( startPoint->leftPoint ) {
-					startPoint = startPoint->leftPoint;
-				} else {
-					// node point on the end
-					nodePoint = new PointNode();
-					nodePoint->rightPoint = startPoint;
-					startPoint->leftPoint = nodePoint;
-					nodePoint->p0 = p0;
-					break;
-				}
-			}
-		}
-
-		// empty list
-		if ( !nodePoint ) {
-			nodePoint = new PointNode();
-			nodePoint->p0 = p0;
-			cachedPoint = nodePoint;
-		}
-		cachedPoint = nodePoint;
-
-
-		// find edge adjacent to this point
-		EdgeTriNode* startEdge = nodePoint->edgeNode;
-		while ( startEdge ) {
-			if ( startEdge->p1 == p1 ) {
-				assert(false); // this edge should not yet exist??
-				break;
-			} else if ( startEdge->p1 < p1 ) {
-				if ( startEdge->rightNode && startEdge->rightNode->p1 > p1 ) {
-					// node edge between these nodes
-					edge->rightNode = startEdge->rightNode;
-					edge->rightNode->leftNode = edge;
-					edge->leftNode = startEdge;
-					startEdge->rightNode = edge;
-					break;
-				}
-
-				if ( startEdge->rightNode ) {
-					startEdge = startEdge->rightNode;
-				} else {
-					// node edge on the end
-					edge->leftNode = startEdge;
-					startEdge->rightNode = edge;
-					break;
-				}
-			} else {
-				if ( startEdge->leftNode && startEdge->leftNode->p1 < p1 ) {
-					// node edge between these nodes
-					edge->leftNode = startEdge->leftNode;
-					edge->leftNode->rightNode = edge;
-					edge->rightNode = startEdge;
-					startEdge->leftNode = edge;
-					break;
-				}
-
-				if ( startEdge->leftNode ) {
-					startEdge = startEdge->leftNode;
-				} else {
-					// node edge on the end
-					edge->rightNode = startEdge;
-					startEdge->leftNode = edge;
-					break;
-				}
-
-			}
-		}
-
-		// empty list
-		if ( !edge ) {
-			nodePoint->edgeNode = edge;
-		}
-
-	}
-
-}
-*/
-// ============================================== //
-
-
-// ============================================== //
 Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 
 	/* Attempt to add given triangle to this chunk
@@ -3803,12 +3482,23 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 	 * or the midpoint between projections.
 	 **/
 
+	try {
 	Log(str(format("Chunk::addTriangle {%1%,%2%,%3%}: <%4%,%5%,%6%> <%7%,%8%,%9%> <%10%,%11%,%12%>") %
 			p0->vertexIndex % p1->vertexIndex % p2->vertexIndex %
 			p0->getX() % p0->getY() % p0->getZ() % 
 			p1->getX() % p1->getY() % p1->getZ() % 
 			p2->getX() % p2->getY() % p2->getZ() ));
+	} catch(exception& e) {
+		Log("Chunk::addTriangle ...?");
+	}
 	AddTriangleResults results;
+
+	if ( p0->vertexIndex == p1->vertexIndex ||
+		 p0->vertexIndex == p2->vertexIndex ||
+		 p1->vertexIndex == p2->vertexIndex ) {
+		results.addResults = AddTriangleResults::TRIANGLE_ADD_FAILED;
+		return results;
+	}
 
 	// does this triangle already exist?
 	uint index = 0;
@@ -3816,38 +3506,105 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 	for ( auto existingTriangle : triangleBuffer ) {
 		if ( existingTriangle == newTriangle ) {
 			results.addedTriangle = index;
-			results.addResults = AddTriangleResults::TRIANGLE_ADD_SUCCEEDED;
+			results.addResults = AddTriangleResults::TRIANGLE_ADD_NOT_NECESSARY;
 			return results; // triangle has already been added
 		}
 		++index;
 	}
 
-	/* TODO: remove this
-	// have these voxels already been added?
-	int _p0=-1, _p1=-1, _p2=-1;
-	uint found = 0, index = 0;
-	for ( auto voxel : voxelBuffer ) {
-		if ( voxel == p0 )      { _p0 = voxel->vertexIndex; ++found; }
-		else if ( voxel == p1 ) { _p1 = voxel->vertexIndex; ++found; }
-		else if ( voxel == p2 ) { _p2 = voxel->vertexIndex; ++found; }
-		if ( found == 3 ) break;
-		++index;
-	}
-
-	// does the triangle already exist ??
-	if ( found == 3 ) {
-		index = 0;
-		Triangle newTriangle(_p0,_p1,_p2);
-		for ( auto existingTriangle : triangleBuffer ) {
-			if ( existingTriangle == newTriangle ) {
-				results.addedTriangle = index;
-				results.addResults = AddTriangleResults::TRIANGLE_ADD_SUCCEEDED;
-				return results; // triangle has already been added
+	auto anyMatchingPoints = []( ushort p0, ushort p1, ushort p2, AddTriangleResults* points ) -> bool {
+		auto matchingPoints = []( ushort p, AddTriangleResults* points ) -> bool {
+			return ( 
+			 ( points->projected_p1       && p == points->projected_p1->vertexIndex ) ||
+			 ( points->projected_p2       && p == points->projected_p2->vertexIndex ) ||
+			 ( points->projected_p1p2     && p == points->projected_p1p2->vertexIndex ) ||
+			 ( points->projected_p1Mid    && p == points->projected_p1Mid->vertexIndex ) ||
+			 ( points->projected_p2Mid    && p == points->projected_p2Mid->vertexIndex ) ||
+			 ( points->projected_midpoint && p == points->projected_midpoint->vertexIndex ) ||
+			 ( points->outer_midpoint     && p == points->outer_midpoint->vertexIndex ) );
+		};
+		auto pointsMatchOthers = []( AddTriangleResults* points ) -> bool {
+			ushort v;
+			if ( points->projected_p1 ) {
+				v = points->projected_p1->vertexIndex;
+				if (
+					( points->projected_p2       && v == points->projected_p2->vertexIndex ) ||
+					( points->projected_p1p2     && v == points->projected_p1p2->vertexIndex ) ||
+					( points->projected_p1Mid    && v == points->projected_p1Mid->vertexIndex ) ||
+					( points->projected_p2Mid    && v == points->projected_p2Mid->vertexIndex ) ||
+					( points->projected_midpoint && v == points->projected_midpoint->vertexIndex ) ||
+					( points->outer_midpoint     && v == points->outer_midpoint->vertexIndex ) ) return true;
 			}
-			++index;
-		}
-	}
-	*/
+			if ( points->projected_p2 ) {
+				v = points->projected_p2->vertexIndex;
+				if (
+					( points->projected_p1       && v == points->projected_p1->vertexIndex ) ||
+					( points->projected_p1p2     && v == points->projected_p1p2->vertexIndex ) ||
+					( points->projected_p1Mid    && v == points->projected_p1Mid->vertexIndex ) ||
+					( points->projected_p2Mid    && v == points->projected_p2Mid->vertexIndex ) ||
+					( points->projected_midpoint && v == points->projected_midpoint->vertexIndex ) ||
+					( points->outer_midpoint     && v == points->outer_midpoint->vertexIndex ) ) return true;
+			}
+			if ( points->projected_p1p2 ) {
+				v = points->projected_p1p2->vertexIndex;
+				if (
+					( points->projected_p1       && v == points->projected_p1->vertexIndex ) ||
+					( points->projected_p2       && v == points->projected_p2->vertexIndex ) ||
+					( points->projected_p1Mid    && v == points->projected_p1Mid->vertexIndex ) ||
+					( points->projected_p2Mid    && v == points->projected_p2Mid->vertexIndex ) ||
+					( points->projected_midpoint && v == points->projected_midpoint->vertexIndex ) ||
+					( points->outer_midpoint     && v == points->outer_midpoint->vertexIndex ) ) return true;
+			}
+			if ( points->projected_p1Mid ) {
+				v = points->projected_p1Mid->vertexIndex;
+				if (
+					( points->projected_p1       && v == points->projected_p1->vertexIndex ) ||
+					( points->projected_p2       && v == points->projected_p2->vertexIndex ) ||
+					( points->projected_p1p2     && v == points->projected_p1p2->vertexIndex ) ||
+					( points->projected_p2Mid    && v == points->projected_p2Mid->vertexIndex ) ||
+					( points->projected_midpoint && v == points->projected_midpoint->vertexIndex ) ||
+					( points->outer_midpoint     && v == points->outer_midpoint->vertexIndex ) ) return true;
+			}
+			if ( points->projected_p2Mid ) {
+				v = points->projected_p2Mid->vertexIndex;
+				if (
+					( points->projected_p1       && v == points->projected_p1->vertexIndex ) ||
+					( points->projected_p2       && v == points->projected_p2->vertexIndex ) ||
+					( points->projected_p1p2     && v == points->projected_p1p2->vertexIndex ) ||
+					( points->projected_p1Mid    && v == points->projected_p1Mid->vertexIndex ) ||
+					( points->projected_midpoint && v == points->projected_midpoint->vertexIndex ) ||
+					( points->outer_midpoint     && v == points->outer_midpoint->vertexIndex ) ) return true;
+			}
+			if ( points->projected_midpoint ) {
+				v = points->projected_midpoint->vertexIndex;
+				if (
+					( points->projected_p1       && v == points->projected_p1->vertexIndex ) ||
+					( points->projected_p2       && v == points->projected_p2->vertexIndex ) ||
+					( points->projected_p1p2     && v == points->projected_p1p2->vertexIndex ) ||
+					( points->projected_p1Mid    && v == points->projected_p1Mid->vertexIndex ) ||
+					( points->projected_p2Mid    && v == points->projected_p2Mid->vertexIndex ) ||
+					( points->outer_midpoint     && v == points->outer_midpoint->vertexIndex ) ) return true;
+			}
+			if ( points->outer_midpoint ) {
+				v = points->outer_midpoint->vertexIndex;
+				if (
+					( points->projected_p1       && v == points->projected_p1->vertexIndex ) ||
+					( points->projected_p2       && v == points->projected_p2->vertexIndex ) ||
+					( points->projected_p1p2     && v == points->projected_p1p2->vertexIndex ) ||
+					( points->projected_p1Mid    && v == points->projected_p1Mid->vertexIndex ) ||
+					( points->projected_p2Mid    && v == points->projected_p2Mid->vertexIndex ) ||
+					( points->projected_midpoint && v == points->projected_midpoint->vertexIndex ) ) return true;
+			}
+
+			return false;
+
+		};
+
+		return ( p0 == p1 || p0 == p2 || p1 == p2 ||
+				 matchingPoints( p0, points ) || matchingPoints( p1, points ) || matchingPoints( p2, points ) ||
+				 pointsMatchOthers( points ) );
+
+	};
 
 	
 	// are any of the voxels outside of the chunk?
@@ -3888,6 +3645,11 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 				results.projected_p1->vertexIndex = terrain->vertexBuffer.size() - 1;
 			}
 
+			if ( anyMatchingPoints( p0->vertexIndex, p1->vertexIndex, p2->vertexIndex, &results ) ) {
+				results.addResults = AddTriangleResults::TRIANGLE_ADD_FAILED_BADTRI;
+				return results;
+			}
+
 			results.projected_p1->terrain = terrain;
 
 			// project p2 along the p0-p2 edge, onto the chunk
@@ -3914,6 +3676,12 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 				terrain->vertexBuffer.push_back( new_vert );
 				results.projected_p2->vertexIndex = terrain->vertexBuffer.size() - 1;
 			}
+
+			if ( anyMatchingPoints( p0->vertexIndex, p1->vertexIndex, p2->vertexIndex, &results ) ) {
+				results.addResults = AddTriangleResults::TRIANGLE_ADD_FAILED_BADTRI;
+				return results;
+			}
+
 
 			results.projected_p2->terrain = terrain;
 
@@ -3942,6 +3710,12 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 					terrain->vertexBuffer.push_back( new_vert );
 					results.projected_midpoint->vertexIndex = terrain->vertexBuffer.size() - 1;
 				}
+
+				if ( anyMatchingPoints( p0->vertexIndex, p1->vertexIndex, p2->vertexIndex, &results ) ) {
+					results.addResults = AddTriangleResults::TRIANGLE_ADD_FAILED_BADTRI;
+					return results;
+				}
+
 
 				results.projected_midpoint->terrain = terrain;
 
@@ -3978,6 +3752,12 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 					results.projected_p1Mid->vertexIndex = terrain->vertexBuffer.size() - 1;
 				}
 
+				if ( anyMatchingPoints( p0->vertexIndex, p1->vertexIndex, p2->vertexIndex, &results ) ) {
+					results.addResults = AddTriangleResults::TRIANGLE_ADD_FAILED_BADTRI;
+					return results;
+				}
+
+
 				results.projected_p1Mid->terrain = terrain;
 
 				// find point along edge of chunk of projected-p2 face
@@ -3998,6 +3778,12 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 					terrain->vertexBuffer.push_back( new_vert );
 					results.projected_p2Mid->vertexIndex = terrain->vertexBuffer.size() - 1;
 				}
+
+				if ( anyMatchingPoints( p0->vertexIndex, p1->vertexIndex, p2->vertexIndex, &results ) ) {
+					results.addResults = AddTriangleResults::TRIANGLE_ADD_FAILED_BADTRI;
+					return results;
+				}
+
 
 				results.projected_p2Mid->terrain = terrain;
 
@@ -4046,6 +3832,12 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 				results.projected_p1p2->vertexIndex = terrain->vertexBuffer.size() - 1;
 			}
 
+			if ( anyMatchingPoints( p0->vertexIndex, p1->vertexIndex, p2->vertexIndex, &results ) ) {
+				results.addResults = AddTriangleResults::TRIANGLE_ADD_FAILED_BADTRI;
+				return results;
+			}
+
+
 			results.projected_p1p2->terrain = terrain;
 
 			results.addResults = AddTriangleResults::TRIANGLE_ADD_TWOPOINT_TWOSIDE;
@@ -4080,7 +3872,6 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 				for( auto vertex : terrain->vertexBuffer ) {
 					if ( vertex == new_vert ) {
 						Log(str(format("Borrowed vertex elsewhere.. %1%")%i));
-						// assert(false);
 						projection->vertexIndex = i;
 						break;
 					}
@@ -4091,9 +3882,15 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 					projection->vertexIndex = terrain->vertexBuffer.size() - 1;
 				}
 
-				projection->terrain = terrain;
-				if ( p1_isOutside ) results.projected_p1 = projection;
-				else results.projected_p2 = projection;
+				if ( projection->vertexIndex == p0->vertexIndex ||
+					 projection->vertexIndex == p1->vertexIndex ||
+					 projection->vertexIndex == p2->vertexIndex ) {
+					projectedVertex0 = 0;
+				} else {
+					projection->terrain = terrain;
+					if ( p1_isOutside ) results.projected_p1 = projection;
+					else results.projected_p2 = projection;
+				}
 			}
 
 			if ( projectedVertexN ) {
@@ -4116,8 +3913,28 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 					results.projected_p1p2->vertexIndex = terrain->vertexBuffer.size() - 1;
 				}
 
-				results.projected_p1p2->terrain = terrain;
+				if ( results.projected_p1p2->vertexIndex == p0->vertexIndex ||
+					 results.projected_p1p2->vertexIndex == p1->vertexIndex ||
+					 results.projected_p1p2->vertexIndex == p2->vertexIndex ||
+					 (results.projected_p1 && results.projected_p1p2->vertexIndex == results.projected_p1->vertexIndex) ||
+					 (results.projected_p2 && results.projected_p1p2->vertexIndex == results.projected_p2->vertexIndex) ) {
+					delete results.projected_p1p2;
+					projectedVertexN = 0;
+				} else {
+					results.projected_p1p2->terrain = terrain;
+				}
 			}
+
+			// in case the projection(s) were false
+			if ( projectedVertex0 == 0 && projectedVertexN == 0 ) {
+				// projection from outside vertex to both inside vertices are just themselves
+				// NOTE: this means it fails in adding the triangle to this chunk, however it should fit in the outside
+				// vertex's chunk, given that the two inside vertices lay on the seam
+				Log("	Failed...probably just needs to use the other vertex's chunk");
+				results.addResults = AddTriangleResults::TRIANGLE_ADD_FAILED;
+				return results;
+			}
+
 
 			// in case one of the inside voxels lays on the seam of the chunk, the outside voxel will likely project
 			// directly onto the same voxel as that one...hence we only have 1 unique projection, and no midpoint
@@ -4140,6 +3957,11 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 			Vertex* midpoint = getSeamIntersectionPoint( &p0end, &p1end, &p2end, facep0, facep2 ); // TODO: sometimes returns 0 !?
 			results.projected_midpoint = new Voxel();
 
+			if ( midpoint == 0 ) {
+				results.addResults = AddTriangleResults::TRIANGLE_ADD_FAILED_BADTRI;
+				return results;
+			}
+
 			Vertex new_vert = Vertex(midpoint->v_x, midpoint->v_y, midpoint->v_z);
 			i=0;
 			for( auto vertex : terrain->vertexBuffer ) {
@@ -4156,6 +3978,12 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 				results.projected_midpoint->vertexIndex = terrain->vertexBuffer.size() - 1;
 			}
 
+			if ( anyMatchingPoints( p0->vertexIndex, p1->vertexIndex, p2->vertexIndex, &results ) ) {
+				results.addResults = AddTriangleResults::TRIANGLE_ADD_FAILED_BADTRI;
+				return results;
+			}
+
+
 			results.projected_midpoint->terrain = terrain;
 			
 			return results;
@@ -4165,30 +3993,10 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2) {
 	}
 
 
-	// Voxels inside of chunk, add triangle normally
-
-	/* TODO: remove this
-	// get the indices
-	if ( _p0==-1 ) {
-		voxelBuffer.push_back(p0);
-		_p0 = p0->vertexIndex;
-
-	}
-	if ( _p1==-1 ) {
-		voxelBuffer.push_back(p1);
-		_p1 = p1->vertexIndex;
-	}
-	if ( _p2==-1 ) {
-		voxelBuffer.push_back(p2);
-		_p2 = p2->vertexIndex;
-	}
-	*/
-
 	// add triangle
-	// TODO: remove this
-	// triangleBuffer.push_back(Triangle(_p0,_p1,_p2));
 	if (p0->vertexIndex == p1->vertexIndex || p0->vertexIndex == p2->vertexIndex || p1->vertexIndex == p2->vertexIndex) {
-		results.addResults = AddTriangleResults::TRIANGLE_ADD_FAILED;
+		// two vertices are the SAME.. hence this is not a triangle
+		results.addResults = AddTriangleResults::TRIANGLE_ADD_FAILED_BADTRI;
 		return results;
 	}
 	triangleBuffer.push_back(Triangle(p0->vertexIndex, p1->vertexIndex, p2->vertexIndex));
@@ -4606,13 +4414,6 @@ Vertex* Chunk::lineIntersectTriangle(float line_x, float line_y, float line_z, f
 // ============================================== //
 void Chunk::construct() {
 
-	/* TODO: remove this
-	for ( Voxel* voxel : voxelBuffer ) {
-		while ( voxel->neighbours.has((Voxel*)0) ) {
-			voxel->neighbours.remove(0);
-		}
-	}
-	*/
 	
 	glUseProgram(terrain->gl);
 	// TODO: delete vao (in case its already setup for another program)
@@ -4622,9 +4423,7 @@ void Chunk::construct() {
 	glBindVertexArray( vao );
 
 	// setup buffer object
-	glGenBuffers( 1, &vbo );
-	glBindBuffer( GL_ARRAY_BUFFER, vbo );
-	glBufferData( GL_ARRAY_BUFFER, ( terrain->vertexBuffer.size() ) * sizeof(Vertex), terrain->vertexBuffer.data(), GL_STATIC_DRAW ); // TODO: this is NOT okay!
+	glBindBuffer( GL_ARRAY_BUFFER, terrain->vbo );
 
 	GLint glVertex = glGetAttribLocation( terrain->gl, "in_Position" );
 	glEnableVertexAttribArray( glVertex );

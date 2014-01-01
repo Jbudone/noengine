@@ -285,7 +285,6 @@ struct TriangleNode;
 struct EdgeTriTree;
 struct Tri;
 class Terrain {
-	// GLuint vao, vbo; // TODO: remove these?
 
 public:
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -320,6 +319,7 @@ public:
 	void construct();
 	void render();
 	GLuint gl;
+	GLuint vbo; // global vbo of vertices for all chunks to reference
 
 	/* Procedural Generation
 	 *
@@ -346,10 +346,15 @@ struct Vertex {
 	Vertex(float v_x, float v_y, float v_z) : v_x(v_x), v_y(v_y), v_z(v_z) { }
 	float v_x, v_y, v_z;
 	bool operator ==(Vertex& vertex) {
-		int rpt = 1000; // rounding point
-		return ((int)(v_x*rpt) == (int)(vertex.v_x*rpt) &&
-				(int)(v_y*rpt) == (int)(vertex.v_y*rpt) &&
-				(int)(v_z*rpt) == (int)(vertex.v_z*rpt));
+		float rpt = 0.01f;
+		return (
+			(fabs(v_x-vertex.v_x) <= rpt) && 
+			(fabs(v_y-vertex.v_y) <= rpt) && 
+			(fabs(v_z-vertex.v_z) <= rpt) );
+		// int rpt = 1000; // rounding point
+		// return ((int)(v_x*rpt) == (int)(vertex.v_x*rpt) &&
+		// 		(int)(v_y*rpt) == (int)(vertex.v_y*rpt) &&
+		// 		(int)(v_z*rpt) == (int)(vertex.v_z*rpt));
 	}
 	bool between(Vertex& v1, Vertex& v2) {
 		return (
@@ -501,6 +506,8 @@ struct Chunk {
 		const static uchar TRIANGLE_ADD_FAILED              = 7;
 		const static uchar TRIANGLE_ADD_TWOPOINT_ONESIDE_NOMID = 8;
 		const static uchar TRIANGLE_ADD_ONEPOINT_ONESIDE_ONEPROJ = 9;
+		const static uchar TRIANGLE_ADD_NOT_NECESSARY = 10;
+		const static uchar TRIANGLE_ADD_FAILED_BADTRI = 11;
 	};
 	AddTriangleResults addTriangle(Voxel* p0, Voxel* p1, Voxel* p2);
 	bool isOutsideChunk(Voxel* p);
