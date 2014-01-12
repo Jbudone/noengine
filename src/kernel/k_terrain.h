@@ -247,6 +247,93 @@
  *  	  at various quality levels..you can profile or
  *  	  dynamically adapt to the best levels for
  *  	  efficiency
+ *
+ *  Journaling System
+ *  	- journal entry is a list of atomic operations
+ *  		> add, remove, reshape triangle
+ *  		> list of added verts/edges; remove these on
+ *  			undo since this entry added it and no other
+ *  			entry will point to it
+ *  		> start new journal entry before performing
+ *  			operations; then all atomic operations
+ *  			simply add to the active entry
+ *  		> play-back used as a debugger; should visually
+ *  			animate all atomic operations made (even
+ *  			lower level operations)
+ *  			- neighbouring tri's
+ *  			- neighbouring edges
+ *  			- attach tri to edge
+ *  			should display active triangles/edges as
+ *  			another colour (different shader) to
+ *  			distinguish what's going on
+ *				Check that animation/playback is on, then
+ *				on an animatable-operation make any updates
+ *				to selection (animation) and set
+ *				animation/playback to updated and puts
+ *				thread to sleep. Executing a journal entry
+ *				starts a new thread for execution; parent
+ *				entry responsible for resuming the animation
+ *				after some period of time (for visual
+ *				animation). Should allow for
+ *				animation/non-animation in case we want to
+ *				execute a journal entry without animating
+ *
+ *				NOTE: using id's to refer to tri/edge/verts
+ *				is extremely dangerous and constraining. The
+ *				local terrain MUST be in absolute sync with
+ *				the server terrain
+ *
+ *				PROBLEMS
+ *					> changing verts/edges; it'd be much
+ *					better to handle this local but may not
+ *					be possible or better with journaling.
+ *					Depending on number of held journal
+ *					entries, it may be better to store all
+ *					low level operations
+ *
+ *					> activate a journal entry globally for
+ *					all added stuff to add to that entry;
+ *					what about multiple journal entries
+ *					being created at same time? Multiple
+ *					terrains/maps in other places too
+ *					(global access to terrain).
+ *
+ *					- terrain id?
+ *					- journal id? (thread local journal id?)
+ *					- pass environment variable? terrain id,
+ *						journal id
+ *
+ *  		JournalEntry {
+	 			type_enum,
+				id[],
+				float[]
+			}
+
+
+			EntryAddTri: {
+				tri_id, chunk_id,
+				[vert_id, vert_id, vert_id]
+			}
+
+			EntryRemoveTri {
+				tri_id, chunk_id,
+				[vert_id, vert_id, vert_id]
+			}
+
+			EntryShapeTri {
+				tri_id, chunk_id,
+				(old)[vert_id, vert_id, vert_id]
+				(new)[vert_id, vert_id, vert_id]
+			}
+
+			EntryAddVert {
+				vert_id,
+				[x, y, z]
+			}
+
+			EntryAddEdge {
+				[vert_id, vert_id]
+			}
  *		
  **/
 
@@ -274,6 +361,49 @@
 =================================================
 */
 
+
+
+/* JournalEntry
+ *
+ * A journal entry contains a modification to the terrain.
+ * It stores an entry type, and a list of ids and floats;
+ * these can be read back to execute the same entry again.
+ *
+ * Journal entries are setup to have already solved any
+ * T-junctions and triangle subdivisions; hence you should
+ * only need to add/remove/reshape a triangle, and
+ * re-neighbour it as necessary
+ */
+struct JournalEntry {
+
+	struct JournalEntryOp {
+		const static uchar JOURNAL_ENTRY_ADDTRI = 0;
+		const static uchar JOURNAL_ENTRY_RESHAPETRI = 1;
+		const static uchar JOURNAL_ENTRY_REMOVETRI = 2;
+		const static uchar JOURNAL_ENTRY_ADDVERT = 3;
+		const static uchar JOURNAL_ENTRY_ADDEDGE = 4;
+		const static uchar JOURNAL_ENTRY_REMOVEEDGE = 5;
+
+		uchar entry_type;
+		ushort* id;
+		float* args;
+	};
+
+	static JournalEntryOp* AddTri(ushort id, ushort chunk, ushort p0, ushort p1, ushort p2);
+	static JournalEntryOp* ReshapeTri(ushort id, ushort chunk, ushort old_p0, ushort old_p1, ushort old_p2, ushort p0, ushort p1, ushort p2);
+	static JournalEntryOp* RemoveTri(ushort id, ushort chunk, ushort p0, ushort p1, ushort p2);
+	static JournalEntryOp* AddVert(ushort id, float x, float y, float z);
+	static JournalEntryOp* AddEdge(ushort p0, ushort p1);
+	static JournalEntryOp* RemoveEdge(ushort p0, ushort p1);
+
+	vector<JournalEntryOp*> operations;
+};
+
+struct Journal {
+	vector<JournalEntry*> entries;
+};
+
+
 struct Voxel;
 struct Chunk;
 template <class T> struct Point;
@@ -284,6 +414,10 @@ struct Triangle;
 struct TriangleNode;
 struct EdgeTriTree;
 struct Tri;
+struct Journal;
+struct JournalEntry;
+struct JournalEntryOp;
+struct Environment;
 class Terrain {
 
 public:
@@ -306,11 +440,30 @@ public:
 	void selectTri(Tri*);
 
 	Chunk* headChunk = 0;
+	vector<Chunk*> chunkList;
 	vector<Vertex> vertexBuffer; // all vertices in the terrain
 	Voxel* voxelTree; // voxel tree of terrain
 	vector<Triangle> debugTriangles; // TODO: remove or implement debug mode properly
 	EdgeTriTree* edgeTree;
 
+	/* Journal
+	 *
+	 * Responsible for keeping track of changes made to the
+	 * terrain; basically an undo/redo list of updates
+	 **/
+	Journal* journal;
+	int activeJournalEntry;
+	void undo(JournalEntry* entry);
+	void redo(JournalEntry* entry);
+
+	void operation_reshapeTri(JournalEntry::JournalEntryOp* operation);
+	void operation_addTri(JournalEntry::JournalEntryOp* operation);
+	void operation_removeTri(JournalEntry::JournalEntryOp* operation);
+	void operation_addVert(JournalEntry::JournalEntryOp* operation);
+	void operation_removeVert(JournalEntry::JournalEntryOp* operation);
+	void operation_addEdge(JournalEntry::JournalEntryOp* operation);
+	void operation_removeEdge(JournalEntry::JournalEntryOp* operation);
+	
 
 	/* Rendering
 	 *
@@ -463,6 +616,7 @@ struct Chunk {
 	Chunk(Point<int> position);
 	Point<int> worldOffset;
 	static const Point<int> chunkSize;
+	ushort id;
 
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	// Voxel & Triangle storage
@@ -509,9 +663,11 @@ struct Chunk {
 		const static uchar TRIANGLE_ADD_NOT_NECESSARY = 10;
 		const static uchar TRIANGLE_ADD_FAILED_BADTRI = 11;
 	};
-	AddTriangleResults addTriangle(Voxel* p0, Voxel* p1, Voxel* p2);
+	AddTriangleResults addTriangle(Voxel* p0, Voxel* p1, Voxel* p2, Environment* env);
 	bool isOutsideChunk(Voxel* p);
 	Vertex* getVoxelProjection(Voxel* voxel, Voxel* neighbour, uchar* face);
+	pair<Vertex*,Vertex*>* getVoxelProjections(Voxel* voxel, Voxel* neighbour1, Voxel* neighbour2, uchar* face);
+	pair<Vertex*,Vertex*>* getVoxelsProjections(Voxel* voxel1, Voxel* voxel2, Voxel* neighbour, uchar* face);
 	Vertex* projectVertexOntoFace(Vertex* voxel, Vertex* neighbour, uchar face);
 	Vertex* getSeamIntersectionPoint(Vertex* p0, Vertex* p1, Vertex* p2, uchar face);
 	Vertex* getSeamIntersectionPoint(Vertex* p0, Vertex* p1, Vertex* p2, uchar face1, uchar face2);
@@ -641,6 +797,7 @@ struct EdgeTriTree {
 		static vector<EdgeChunk*> getContainers(ushort p0, ushort p1);
 		static vector<EdgeChunk*> getContainer(ushort p0);
 		vector<EdgeChunk*> getContainers();
+		Tri** getTriSide(Tri*); // find side to which triangle should attach
 		Tri* triangle_p0p1 = 0; // triangle on p0p1 side
 		Tri* triangle_p1p0 = 0; // triangle on p1p0 side
 
@@ -688,8 +845,8 @@ struct EdgeTriTree {
 
 	// PointNode* cachedPoint = 0; // cached ptr to last accessed point node
 	// vector<EdgeTriNode*> nodesNeedSubdividing;
-	void addTriangle(Chunk* chunk, ushort triIndex);
-	void addTriangle(Chunk* chunk, ushort triIndex, ushort p0, ushort p1);
+	bool addTriangle(Chunk* chunk, ushort triIndex, Environment* env);
+	void addTriangle(Chunk* chunk, ushort triIndex, ushort p0, ushort p1, Environment* env);
 	// TODO: linkedList of linkedList of edges; sort outer
 	// and inner lists by ushort index. addTriangle adds to
 	// linkedList by switching p0/p1 to make p0<p1; if
@@ -848,6 +1005,8 @@ struct TerrainSelection {
 		const static uchar CLASS_HIGHLIGHT = 1;
 		const static uchar CLASS_HIGHLIGHT_NEIGHBOUR = 2;
 		int class_id;
+		Chunk* refChunk;
+		int refTri_id;
 		vector<Triangle> triangles;
 	};
 	vector<SelectionClass*> selections;
@@ -857,6 +1016,9 @@ struct TerrainSelection {
 	// LinkedList_Circle<QuadTree<Voxel>> outer_neighbours;
 };
 
-
+struct Environment {
+	Terrain* terrain;
+	JournalEntry* journalEntry;
+};
 
 #endif

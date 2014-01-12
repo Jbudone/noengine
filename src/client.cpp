@@ -398,6 +398,56 @@ void keyboard(unsigned char key, int xx, int yy) {
 			input_state |= INPUT_BACKWARD; break;
 		case 115: // UP
 			input_state |= INPUT_UP; break;
+		case 117: // Journal Undo
+			if ( ResourceManager::world->terrain->activeJournalEntry >= 0 ) {
+				ResourceManager::world->terrain->undo( ResourceManager::world->terrain->journal->entries.at( ResourceManager::world->terrain->activeJournalEntry ) );
+				--ResourceManager::world->terrain->activeJournalEntry;
+			}
+			break;
+		case 114: // Journal Redo
+			if ( ResourceManager::world->terrain->activeJournalEntry < ResourceManager::world->terrain->journal->entries.size() - 1 ||
+				 ResourceManager::world->terrain->activeJournalEntry < 0 ) {
+				ResourceManager::world->terrain->redo( ResourceManager::world->terrain->journal->entries.at( ResourceManager::world->terrain->activeJournalEntry+1 ) );
+				++ResourceManager::world->terrain->activeJournalEntry;
+			}
+			break;
+		case 85: // Journal Undo at Tri
+			if ( ResourceManager::world->terrain->selection ) {
+				for ( auto selection : ResourceManager::world->terrain->selection->selections ) {
+					if ( selection->class_id == TerrainSelection::SelectionClass::CLASS_HIGHLIGHT ) {
+						ushort triId = selection->refTri_id;
+						JournalEntry* triEntry = 0;
+						int triEntryId = 0;
+						for ( int i = ResourceManager::world->terrain->activeJournalEntry; i >= 0; --i ) {
+							for ( auto operation : ResourceManager::world->terrain->journal->entries.at(i)->operations ) {
+								if ( ( operation->entry_type == JournalEntry::JournalEntryOp::JOURNAL_ENTRY_ADDTRI ||
+									   operation->entry_type == JournalEntry::JournalEntryOp::JOURNAL_ENTRY_RESHAPETRI ) &&
+									operation->id[0] == triId && operation->id[1] == selection->refChunk->id ) {
+									triEntry = ResourceManager::world->terrain->journal->entries.at(i);
+									triEntryId = i;
+									break;
+								}
+							}
+							if ( triEntry ) break;
+						}
+
+						// Undo to this point
+						if ( triEntry ) {
+							for ( int i = ResourceManager::world->terrain->activeJournalEntry; i >= triEntryId; --i ) {
+								ResourceManager::world->terrain->undo( ResourceManager::world->terrain->journal->entries.at(i) );
+							}
+							ResourceManager::world->terrain->activeJournalEntry = triEntryId-1;
+							Log(str(format("activeJournalEntry: %1%")%ResourceManager::world->terrain->activeJournalEntry));
+						}
+					}
+				}
+			}
+			break;
+		case 82: // Journal Redo till end
+			for ( int i = ResourceManager::world->terrain->activeJournalEntry; i < ResourceManager::world->terrain->journal->entries.size() - 1 || i < 0; ++i ) {
+				ResourceManager::world->terrain->redo( ResourceManager::world->terrain->journal->entries.at(i+1) );
+			}
+			ResourceManager::world->terrain->activeJournalEntry = ResourceManager::world->terrain->journal->entries.size() - 1;
 	}
 }
 
