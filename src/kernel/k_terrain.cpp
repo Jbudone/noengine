@@ -2,14 +2,14 @@
 
 // const Point<int> Chunk::chunkSize = Point<int>(113,113,113);
 // const Point<int> EdgeTriTree::EdgeChunk::chunkSize = Point<int>(113,113,113);
-#define CHUNK_SIZE 300
+#define CHUNK_SIZE 100
 const Point<int> Chunk::chunkSize = Point<int>(CHUNK_SIZE,CHUNK_SIZE,CHUNK_SIZE);
 const Point<int> EdgeTriTree::EdgeChunk::chunkSize = Point<int>(CHUNK_SIZE,CHUNK_SIZE,CHUNK_SIZE);
 // const Point<int> Chunk::chunkSize = Point<int>(100,100,100);
 // const Point<int> EdgeTriTree::EdgeChunk::chunkSize = Point<int>(100,100,100);
 
-const uint Terrain::width = 800;
-const uint Terrain::depth = 800;
+const uint Terrain::width = 700;
+const uint Terrain::depth = 700;
 const uint Terrain::height = 5000;
 
 Terrain* EdgeTriTree::terrain = 0;
@@ -24,17 +24,86 @@ Terrain::Terrain(GLuint gl) : gl(gl) {
 	construct();
 	selection = new TerrainSelection();
 
-	/*
-	glBindBuffer( GL_ARRAY_BUFFER, vbo );
-	void * data = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
-	for ( int i = 0; i < vertexBuffer.size(); ++i ) {
-		vertexBuffer[i].v_y = 0;
+	return;
+
+
+	EdgeTriTree::EdgeChunk* curFarBackLeft = edgeTree->headChunk;
+	EdgeTriTree::EdgeChunk* curFarLeft;
+	EdgeTriTree::EdgeChunk* curNode;
+	while ( curFarBackLeft ) {
+		curFarLeft = curFarBackLeft;
+		while ( curFarLeft ) {
+			curNode = curFarLeft;
+			while ( curNode ) {
+
+				// Check this Chunk; sort all of the tri's accordingly
+				vector<pair<Tri*,uchar>> triangles; // <Tri, neighbour_count>
+				for ( auto edge : curNode->edges ) {
+					if ( edge->triangle_p0p1 ) {
+						bool foundTri = false;
+						for ( auto e_tri : triangles ) {
+							if ( e_tri.first == edge->triangle_p0p1 ) {
+								foundTri = true;
+								break;
+							}
+						}
+						if ( !foundTri ) {
+							uchar neighbour_count = 0;
+							if ( edge->triangle_p0p1->neighbour_p0p1 ) ++neighbour_count;
+							if ( edge->triangle_p0p1->neighbour_p1p2 ) ++neighbour_count;
+							if ( edge->triangle_p0p1->neighbour_p2p0 ) ++neighbour_count;
+							triangles.push_back({ edge->triangle_p0p1, neighbour_count });
+						}
+					}
+					if ( edge->triangle_p1p0 ) {
+						bool foundTri = false;
+						for ( auto e_tri : triangles ) {
+							if ( e_tri.first == edge->triangle_p1p0 ) {
+								foundTri = true;
+								break;
+							}
+						}
+						if ( !foundTri ) {
+							uchar neighbour_count = 0;
+							if ( edge->triangle_p1p0->neighbour_p0p1 ) ++neighbour_count;
+							if ( edge->triangle_p1p0->neighbour_p1p2 ) ++neighbour_count;
+							if ( edge->triangle_p1p0->neighbour_p2p0 ) ++neighbour_count;
+							triangles.push_back({ edge->triangle_p1p0, neighbour_count });
+						}
+					}
+				}
+
+				// Add triangles to selection whose neighbour counts are below 3
+				TerrainSelection::SelectionClass* triangles_n0 = new TerrainSelection::SelectionClass();
+				TerrainSelection::SelectionClass* triangles_n1 = new TerrainSelection::SelectionClass();
+				TerrainSelection::SelectionClass* triangles_n2 = new TerrainSelection::SelectionClass();
+				TerrainSelection::SelectionClass* triangles_n3 = new TerrainSelection::SelectionClass();
+				triangles_n0->class_id = TerrainSelection::SelectionClass::CLASS_HIGHLIGHT_NEIGHBOURCOUNT0;
+				triangles_n1->class_id = TerrainSelection::SelectionClass::CLASS_HIGHLIGHT_NEIGHBOURCOUNT1;
+				triangles_n2->class_id = TerrainSelection::SelectionClass::CLASS_HIGHLIGHT_NEIGHBOURCOUNT2;
+				triangles_n3->class_id = TerrainSelection::SelectionClass::CLASS_HIGHLIGHT_NEIGHBOURCOUNT3;
+				for ( auto triangle : triangles ) {
+					Log(str(format("Triangle neighbourcount: [%1%]: %2%")%triangle.first%triangle.second));
+					if ( triangle.second < 3 ) {
+						if ( triangle.second == 0 ) triangles_n0->triangles.push_back(triangle.first->chunk->triangleBuffer[triangle.first->triIndex]);
+						else if ( triangle.second == 1 ) triangles_n1->triangles.push_back( triangle.first->chunk->triangleBuffer[triangle.first->triIndex] );
+						else if ( triangle.second == 2 ) triangles_n2->triangles.push_back( triangle.first->chunk->triangleBuffer[triangle.first->triIndex] );
+					} else {
+						triangles_n3->triangles.push_back( triangle.first->chunk->triangleBuffer[triangle.first->triIndex] );
+					}
+				}
+				if ( !triangles_n0->triangles.empty() ) selection->selections.push_back( triangles_n0 );
+				if ( !triangles_n1->triangles.empty() ) selection->selections.push_back( triangles_n1 );
+				if ( !triangles_n2->triangles.empty() ) selection->selections.push_back( triangles_n2 );
+				if ( !triangles_n3->triangles.empty() ) selection->selections.push_back( triangles_n3 );
+
+				curNode = curNode->right;
+			}
+
+			curFarLeft = curFarLeft->infront;
+		}
+		curFarBackLeft = curFarBackLeft->above; 
 	}
-	memcpy( data, vertexBuffer.data(), vertexBuffer.size()*sizeof(vertexBuffer[0]) );
-	glUnmapBuffer(GL_ARRAY_BUFFER);
-	*/
-
-
 }
 // ============================================== //
 
@@ -98,6 +167,7 @@ void Terrain::render() {
 		while ( farLeft ) {
 			curChunk = farLeft;
 			while ( curChunk ) {
+				// r=0; g=0; b=0; // FIXME: disable showing chunks for now
 				curChunk->render(r, g, b);
 				curChunk = curChunk->right;
 				b += incAmount;
@@ -136,7 +206,7 @@ void Terrain::render() {
 
 			glGenBuffers( 1, &decal_ibo );
 			glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, decal_ibo );
-			glBufferData( GL_ELEMENT_ARRAY_BUFFER, selectionClass->triangles.size() * sizeof(Triangle), selectionClass->triangles.data(), GL_STATIC_DRAW );
+			glBufferData( GL_ELEMENT_ARRAY_BUFFER, selectionClass->triangles.size() * sizeof(iTriangle), selectionClass->triangles.data(), GL_STATIC_DRAW );
 
 
 			GLint glMVP = glGetUniformLocation( gl, "MVP" );
@@ -149,6 +219,14 @@ void Terrain::render() {
 				glUniform3f( glGetUniformLocation( gl, "in_color" ), 1.0f, 0.8f, 0.0f );
 			} else if ( selectionClass->class_id == TerrainSelection::SelectionClass::CLASS_HIGHLIGHT_NEIGHBOUR ) {
 				glUniform3f( glGetUniformLocation( gl, "in_color" ), 9.0f, 0.4f, 0.0f );
+			} else if ( selectionClass->class_id == TerrainSelection::SelectionClass::CLASS_HIGHLIGHT_NEIGHBOURCOUNT0 ) {
+				glUniform3f( glGetUniformLocation( gl, "in_color" ), 1.0f, 0.0f, 0.0f );
+			} else if ( selectionClass->class_id == TerrainSelection::SelectionClass::CLASS_HIGHLIGHT_NEIGHBOURCOUNT1 ) {
+				glUniform3f( glGetUniformLocation( gl, "in_color" ), 0.0f, 1.0f, 0.0f );
+			} else if ( selectionClass->class_id == TerrainSelection::SelectionClass::CLASS_HIGHLIGHT_NEIGHBOURCOUNT2 ) {
+				glUniform3f( glGetUniformLocation( gl, "in_color" ), 0.0f, 0.0f, 1.0f );
+			} else if ( selectionClass->class_id == TerrainSelection::SelectionClass::CLASS_HIGHLIGHT_NEIGHBOURCOUNT3 ) {
+				glUniform3f( glGetUniformLocation( gl, "in_color" ), 0.5f, 0.0f, 0.5f );
 			} else {
 				glUniform3f( glGetUniformLocation( gl, "in_color" ), 0.7f, 0.0f, 0.3f );
 			}
@@ -174,7 +252,7 @@ void Terrain::render() {
 
 	glGenBuffers( 1, &decal_ibo );
 	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, decal_ibo );
-	glBufferData( GL_ELEMENT_ARRAY_BUFFER, debugTriangles.size() * sizeof(Triangle), debugTriangles.data(), GL_STATIC_DRAW );
+	glBufferData( GL_ELEMENT_ARRAY_BUFFER, debugTriangles.size() * sizeof(iTriangle), debugTriangles.data(), GL_STATIC_DRAW );
 
 
 	GLint glMVP = glGetUniformLocation( gl, "MVP" );
@@ -480,7 +558,7 @@ FIXME: Bugfix ideas
 			   if ( p0->vertexIndex != p1->vertexIndex &&
 			   p0->vertexIndex != p2->vertexIndex &&
 			   p1->vertexIndex != p2->vertexIndex ) {
-			   chunk->triangleBuffer.push_back(Triangle(p0->vertexIndex, p1->vertexIndex, p2->vertexIndex));
+			   chunk->triangleBuffer.push_back(iTriangle(p0->vertexIndex, p1->vertexIndex, p2->vertexIndex));
 			   ushort bad_tri = chunk->triangleBuffer.size() - 1;
 			   edgeTree->addTriangle( chunk, bad_tri );
 			   }
@@ -502,7 +580,7 @@ FIXME: Bugfix ideas
 					p1->getX() % p1->getY() % p1->getZ() %
 					p2->getX() % p2->getY() % p2->getZ() ));
 		assert( !(p0==p1 || p0==p2 || p1==p2) );
-		Triangle tr = addedTriangle->chunk->triangleBuffer[addedTriangle->triangleID];
+		iTriangle tr = addedTriangle->chunk->triangleBuffer[addedTriangle->triangleID];
 		// TODO: triangles being formed with same vertices
 		if ( tr.p0==tr.p1 || tr.p0==tr.p2 || tr.p1==tr.p2 ) {
 			assert(false);
@@ -1543,6 +1621,7 @@ bool EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex, Environment* env) {
 		}
 
 		void assertBadNeighbours(EdgeTriNode* edge) {
+			return; // FIXME: test speeds
 			vector<pair<ushort, vector<EdgeTriNode*>*>> neighbouringChecks;
 			neighbouringChecks.push_back({ edge->p0, &edge->p0_edges });
 			neighbouringChecks.push_back({ edge->p1, &edge->p1_edges });
@@ -2078,7 +2157,7 @@ bool EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex, Environment* env) {
 										vp1.v_x % vp1.v_y % vp1.v_z %
 										terrain->vertexBuffer[p2].v_x % terrain->vertexBuffer[p2].v_y % terrain->vertexBuffer[p2].v_z %
 										e_p1.v_x % e_p1.v_y % e_p1.v_z ));
-							e_tri->chunk->triangleBuffer.push_back( Triangle( p1, p2, (newEdge->flippedEdge? e_edge->p0 : e_edge->p1) ) );
+							e_tri->chunk->triangleBuffer.push_back( iTriangle( p1, p2, (newEdge->flippedEdge? e_edge->p0 : e_edge->p1) ) );
 							ushort subTri_outi = e_tri->chunk->triangleBuffer.size() - 1;
 							Tri* subTri_out = new Tri( e_tri->chunk, subTri_outi );
 							Tri::assertBadTri(subTri_out);
@@ -2087,7 +2166,7 @@ bool EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex, Environment* env) {
 										subTri_out->p0, subTri_out->p1, subTri_out->p2 ) );
 
 							// Subdivide (lower tri): {p0->p1} 
-							// NOTE: using the same existing Tri since we refer to Triangles by their index, we do NOT want
+							// NOTE: using the same existing Tri since we refer to iTriangles by their index, we do NOT want
 							// to remove a triangle ever from the list
 							ushort e_tri_oldp0 = e_tri->p0,
 								   e_tri_oldp1 = e_tri->p1,
@@ -2386,7 +2465,7 @@ bool EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex, Environment* env) {
 							}
 
 
-							// Subdivide Existing Triangle
+							// Subdivide Existing iTriangle
 							// ----------------------------
 
 							// Subdivide (lower tri): {ep0->p0,ep1->p0}
@@ -2394,7 +2473,7 @@ bool EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex, Environment* env) {
 										terrain->vertexBuffer[p2].v_x % terrain->vertexBuffer[p2].v_y % terrain->vertexBuffer[p2].v_z %
 										vp0.v_x % vp0.v_y % vp0.v_z %
 										e_p0.v_x % e_p0.v_y % e_p0.v_z ));
-							e_tri->chunk->triangleBuffer.push_back( Triangle( (newEdge->flippedEdge? e_edge->p1 : e_edge->p0), p2, p0 ) );
+							e_tri->chunk->triangleBuffer.push_back( iTriangle( (newEdge->flippedEdge? e_edge->p1 : e_edge->p0), p2, p0 ) );
 							ushort subTri_outi = e_tri->chunk->triangleBuffer.size() - 1;
 							Tri* subTri_out = new Tri( e_tri->chunk, subTri_outi );
 							Tri::assertBadTri(subTri_out);
@@ -2807,7 +2886,7 @@ bool EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex, Environment* env) {
 										vp1.v_x % vp1.v_y % vp1.v_z %
 										terrain->vertexBuffer[p2].v_x % terrain->vertexBuffer[p2].v_y % terrain->vertexBuffer[p2].v_z %
 										(newEdge->flippedEdge?e_p0.v_x:e_p1.v_x) % (newEdge->flippedEdge?e_p0.v_y:e_p1.v_y) % (newEdge->flippedEdge?e_p0.v_z:e_p1.v_z) ));
-							e_tri->chunk->triangleBuffer.push_back( Triangle( p1, p2, (newEdge->flippedEdge? e_edge->p0 : e_edge->p1) ) );
+							e_tri->chunk->triangleBuffer.push_back( iTriangle( p1, p2, (newEdge->flippedEdge? e_edge->p0 : e_edge->p1) ) );
 							ushort subTri_topi = e_tri->chunk->triangleBuffer.size() - 1;
 							Tri* subTri_top = new Tri( e_tri->chunk, subTri_topi );
 
@@ -2820,7 +2899,7 @@ bool EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex, Environment* env) {
 										(newEdge->flippedEdge?e_p1.v_x:e_p0.v_x) % (newEdge->flippedEdge?e_p1.v_y:e_p0.v_y) % (newEdge->flippedEdge?e_p1.v_z:e_p0.v_z) %
 										terrain->vertexBuffer[p2].v_x % terrain->vertexBuffer[p2].v_y % terrain->vertexBuffer[p2].v_z %
 										vp0.v_x % vp0.v_y % vp0.v_z));
-							e_tri->chunk->triangleBuffer.push_back( Triangle( (newEdge->flippedEdge? e_edge->p1 : e_edge->p0), p2, p0 ) );
+							e_tri->chunk->triangleBuffer.push_back( iTriangle( (newEdge->flippedEdge? e_edge->p1 : e_edge->p0), p2, p0 ) );
 							ushort subTri_boti = e_tri->chunk->triangleBuffer.size() - 1;
 							Tri* subTri_bot = new Tri( e_tri->chunk, subTri_boti );
 
@@ -3238,7 +3317,7 @@ bool EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex, Environment* env) {
 	EdgeOfTri* triEdge_p2p0;
 
 	// Initialize each EdgeOfTri
-	Triangle triangle = chunk->triangleBuffer[triIndex];
+	iTriangle triangle = chunk->triangleBuffer[triIndex];
 	assert( triangle.p0 != triangle.p1 );
 	assert( triangle.p0 != triangle.p2 );
 	assert( triangle.p1 != triangle.p2 );
@@ -3252,6 +3331,9 @@ bool EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex, Environment* env) {
 				triangle.p2 % v2.v_x % v2.v_y % v2.v_z ));
 
 	// Is this a proper triangle?
+	/*
+	 * NOTE: this has caused issues! Each determined line has turned out to be a necessary component of the terrain
+	 * TODO: remove this? is this at all necessary?
 	glm::vec3 v0v1 = glm::normalize( glm::vec3( v1.v_x - v0.v_x, v1.v_y - v0.v_y, v1.v_z - v0.v_z ) );
 	glm::vec3 v0v2 = glm::normalize( glm::vec3( v2.v_x - v0.v_x, v2.v_y - v0.v_y, v2.v_z - v0.v_z ) );
 	glm::vec3 v1v0 = glm::normalize( glm::vec3( v0.v_x - v1.v_x, v0.v_y - v1.v_y, v0.v_z - v1.v_z ) );
@@ -3272,6 +3354,7 @@ bool EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex, Environment* env) {
 		env->journalEntry->operations.clear();
 		return false;
 	}
+	*/
 
 	triEdge_p0p1 = new EdgeOfTri( triangle.p0, triangle.p1, chunk );
 	triEdge_p1p2 = new EdgeOfTri( triangle.p1, triangle.p2, chunk );
@@ -3619,7 +3702,7 @@ bool EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex, Environment* env) {
 			ushort expected_p1 = (in_edge->flippedEdge? in_edge->edge->p0 : in_edge->edge->p1);
 			ushort p2 = (nextEdge->flippedEdge? nextEdge->edge->p1 : nextEdge->edge->p0);
 			if (expected_p0 == expected_p1 || expected_p0 == p2 || expected_p1 == p2) continue;
-			chunk->triangleBuffer.push_back( Triangle( expected_p0, expected_p1, p2 ) );
+			chunk->triangleBuffer.push_back( iTriangle( expected_p0, expected_p1, p2 ) );
 			Log(str(format("		LOOKING TO ADD TRI: <%1%,%2%,%3%> (%4%)")%
 						chunk->triangleBuffer.back().p0%
 						chunk->triangleBuffer.back().p1%
@@ -3635,7 +3718,7 @@ bool EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex, Environment* env) {
 			ushort expected_p1 = (in_edge->flippedEdge? in_edge->edge->p0 : in_edge->edge->p1);
 			ushort p2 = (nextEdge->flippedEdge? nextEdge->edge->p1 : nextEdge->edge->p0);
 			if (expected_p0 == expected_p1 || expected_p0 == p2 || expected_p1 == p2) continue;
-			chunk->triangleBuffer.push_back( Triangle( expected_p0, expected_p1, p2 ) );
+			chunk->triangleBuffer.push_back( iTriangle( expected_p0, expected_p1, p2 ) );
 			Log(str(format("		LOOKING TO ADD TRI: <%1%,%2%,%3%> [%4%]")%
 						chunk->triangleBuffer.back().p0%
 						chunk->triangleBuffer.back().p1%
@@ -3782,7 +3865,7 @@ bool EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex, Environment* env) {
 			ushort expected_p1 = (in_edge->flippedEdge? in_edge->edge->p0 : in_edge->edge->p1);
 			ushort p2 = (nextEdge->flippedEdge? nextEdge->edge->p1 : nextEdge->edge->p0);
 			if (expected_p0 == expected_p1 || expected_p0 == p2 || expected_p1 == p2) continue;
-			chunk->triangleBuffer.push_back( Triangle( expected_p0, expected_p1, p2 ) );
+			chunk->triangleBuffer.push_back( iTriangle( expected_p0, expected_p1, p2 ) );
 			Log(str(format("		LOOKING TO ADD TRI: <%1%,%2%,%3%>")%
 						chunk->triangleBuffer.back().p0%
 						chunk->triangleBuffer.back().p1%
@@ -3797,7 +3880,7 @@ bool EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex, Environment* env) {
 			ushort expected_p1 = (in_edge->flippedEdge? in_edge->edge->p0 : in_edge->edge->p1);
 			ushort p2 = (nextEdge->flippedEdge? nextEdge->edge->p1 : nextEdge->edge->p0);
 			if (expected_p0 == expected_p1 || expected_p0 == p2 || expected_p1 == p2) continue;
-			chunk->triangleBuffer.push_back( Triangle( expected_p0, expected_p1, p2 ) );
+			chunk->triangleBuffer.push_back( iTriangle( expected_p0, expected_p1, p2 ) );
 			Log(str(format("		LOOKING TO ADD TRI: <%1%,%2%,%3%>")%
 						chunk->triangleBuffer.back().p0%
 						chunk->triangleBuffer.back().p1%
@@ -3812,7 +3895,7 @@ bool EdgeTriTree::addTriangle(Chunk* chunk, ushort triIndex, Environment* env) {
 			ushort expected_p1 = (in_edge->flippedEdge? in_edge->edge->p0 : in_edge->edge->p1);
 			ushort p2 = (nextEdge->flippedEdge? nextEdge->edge->p1 : nextEdge->edge->p0);
 			if (expected_p0 == expected_p1 || expected_p0 == p2 || expected_p1 == p2) continue;
-			chunk->triangleBuffer.push_back( Triangle( expected_p0, expected_p1, p2 ) );
+			chunk->triangleBuffer.push_back( iTriangle( expected_p0, expected_p1, p2 ) );
 			Log(str(format("		LOOKING TO ADD TRI: <%1%,%2%,%3%>")%
 						chunk->triangleBuffer.back().p0%
 						chunk->triangleBuffer.back().p1%
@@ -3940,7 +4023,7 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2, En
 
 	// does this triangle already exist?
 	uint index = 0;
-	Triangle newTriangle(p0->vertexIndex, p1->vertexIndex, p2->vertexIndex);
+	iTriangle newTriangle(p0->vertexIndex, p1->vertexIndex, p2->vertexIndex);
 	for ( auto existingTriangle : triangleBuffer ) {
 		if ( existingTriangle == newTriangle ) {
 			results.addedTriangle = index;
@@ -4299,7 +4382,7 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2, En
 
 			if ( !results.projected_p1 && !results.projected_p2 ) {
 				// simple triangle, no subdivision
-				triangleBuffer.push_back(Triangle(p0->vertexIndex, p1->vertexIndex, p2->vertexIndex));
+				triangleBuffer.push_back(iTriangle(p0->vertexIndex, p1->vertexIndex, p2->vertexIndex));
 				results.addResults = AddTriangleResults::TRIANGLE_ADD_SUCCEEDED;
 				results.addedTriangle = triangleBuffer.size() - 1;
 				return results;
@@ -4794,7 +4877,7 @@ Chunk::AddTriangleResults Chunk::addTriangle(Voxel* p0, Voxel* p1, Voxel* p2, En
 		results.addResults = AddTriangleResults::TRIANGLE_ADD_FAILED_BADTRI;
 		return results;
 	}
-	triangleBuffer.push_back(Triangle(p0->vertexIndex, p1->vertexIndex, p2->vertexIndex));
+	triangleBuffer.push_back(iTriangle(p0->vertexIndex, p1->vertexIndex, p2->vertexIndex));
 	results.addResults = AddTriangleResults::TRIANGLE_ADD_SUCCEEDED;
 	results.addedTriangle = triangleBuffer.size() - 1;
 
@@ -5430,7 +5513,7 @@ void Chunk::construct() {
 	// Generate a buffer for the indices
 	glGenBuffers(1, &elementBuffer);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementBuffer);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, triangleBuffer.size() * sizeof(Triangle), triangleBuffer.data(), GL_DYNAMIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, triangleBuffer.size() * sizeof(iTriangle), triangleBuffer.data(), GL_DYNAMIC_DRAW);
 
 	// cleanup
 	glBindBuffer( GL_ARRAY_BUFFER, 0 );
@@ -5639,12 +5722,18 @@ Tri* Terrain::terrainPick(glm::vec3 position, glm::vec3 direction) {
 
 // ============================================== //
 void Terrain::selectTri(Tri* tri) {
+	int i=0;
 	for ( auto selectionClass : selection->selections ) {
-		delete selectionClass;
+		if ( selectionClass->class_id == TerrainSelection::SelectionClass::CLASS_HIGHLIGHT ||
+			 selectionClass->class_id == TerrainSelection::SelectionClass::CLASS_HIGHLIGHT_NEIGHBOUR ) {
+			delete selectionClass;
+			selection->selections.erase( selection->selections.begin() + i );
+		} else {
+			++i;
+		}
 	}
-	selection->selections.clear();
 
-	Triangle triangle = tri->chunk->triangleBuffer[tri->triIndex];
+	iTriangle triangle = tri->chunk->triangleBuffer[tri->triIndex];
 
 	// Select main triangles
 	TerrainSelection::SelectionClass* selectionClass = new TerrainSelection::SelectionClass();
@@ -5661,6 +5750,67 @@ void Terrain::selectTri(Tri* tri) {
 	if ( tri->neighbour_p1p2 ) selectionClass->triangles.push_back( tri->neighbour_p1p2->chunk->triangleBuffer[tri->neighbour_p1p2->triIndex] );
 	if ( tri->neighbour_p2p0 ) selectionClass->triangles.push_back( tri->neighbour_p2p0->chunk->triangleBuffer[tri->neighbour_p2p0->triIndex] );
 	if ( !selectionClass->triangles.empty() ) selection->selections.push_back( selectionClass );
+}
+// ============================================== //
+
+
+// ============================================== //
+void Terrain::CSG(glm::vec3 position, glm::vec3 intersection, Tri* hitTri) {
+
+	vector<Tri*> trisInCSG;
+	float radius = 60;
+	std::function<void(Tri*)> checkTri = [&](Tri* tri)->void{
+		Vertex v = vertexBuffer[tri->p0];
+		glm::vec3 p0 = glm::vec3( v.v_x, v.v_y, v.v_z );
+		v = vertexBuffer[tri->p1];
+		glm::vec3 p1 = glm::vec3( v.v_x, v.v_y, v.v_z );
+		v = vertexBuffer[tri->p2];
+		glm::vec3 p2 = glm::vec3( v.v_x, v.v_y, v.v_z );
+
+		if ( glm::distance( intersection, p0 ) <= radius ||
+			 glm::distance( intersection, p1 ) <= radius ||
+			 glm::distance( intersection, p2 ) <= radius ) {
+			trisInCSG.push_back( tri );
+
+			vector<Tri*> neighbours;
+			if ( tri->neighbour_p0p1 ) neighbours.push_back( tri->neighbour_p0p1 );
+			if ( tri->neighbour_p1p2 ) neighbours.push_back( tri->neighbour_p1p2 );
+			if ( tri->neighbour_p2p0 ) neighbours.push_back( tri->neighbour_p2p0 );
+			for ( auto neighbour : neighbours ) {
+				bool found_tri = false;
+				for ( auto e_tri : trisInCSG ) {
+					if ( e_tri == neighbour ) {
+						found_tri = true;
+						break;
+					}
+				}
+				if ( !found_tri ) {
+					checkTri( neighbour );
+				}
+			}
+		}
+	};
+	checkTri(hitTri);
+
+	TerrainSelection::SelectionClass* selectionClass = new TerrainSelection::SelectionClass();
+	selectionClass->class_id = TerrainSelection::SelectionClass::CLASS_HIGHLIGHT_NEIGHBOUR;
+	selectionClass->refChunk = hitTri->chunk;
+	selectionClass->refTri_id = hitTri->triIndex;
+	for ( auto tri : trisInCSG ) {
+		selectionClass->triangles.push_back( tri->chunk->triangleBuffer[tri->triIndex] );
+	}
+	selection->selections.push_back( selectionClass );
+
+
+	// TODO: select ALL tri's (separate from those not linked with hitTri)
+	// TODO: find opening normal (norm of CSG object; dot(norm, triNorm) < 0 --> remove tri of CSG obj)
+
+	// TODO: tri -> plane ;; sphere / plane -> circle ;; circle -> tri ;; discrete points (error threshold)
+	// NOTE: plug sphere equation INTO plane equation!
+	Triangle oneTri( vertexBuffer[hitTri->p0], vertexBuffer[hitTri->p1], vertexBuffer[hitTri->p2] );
+	Plane* triPlane = new Plane( oneTri );
+	Sphere* sphere = new Sphere();
+	Circle* circle = intersect( triPlane, sphere );
 }
 // ============================================== //
 
@@ -5767,17 +5917,17 @@ void Terrain::operation_addTri(JournalEntry::JournalEntryOp* operation) {
 	// NOTE: cannot insert in case this index is bigger than the size of the triangleBuffer..
 	while ( operation->id[0] > chunk->triangleBuffer.size() ) {
 		// create placeholder at index
-		chunk->triangleBuffer.push_back( Triangle(0,0,0) );
+		chunk->triangleBuffer.push_back( iTriangle(0,0,0) );
 	}
 
 	if ( operation->id[0] == chunk->triangleBuffer.size() ) {
-		chunk->triangleBuffer.push_back( Triangle( operation->id[2], operation->id[3], operation->id[4] ) );
+		chunk->triangleBuffer.push_back( iTriangle( operation->id[2], operation->id[3], operation->id[4] ) );
 	} else {
-		chunk->triangleBuffer.at(operation->id[0]) = Triangle( operation->id[2], operation->id[3], operation->id[4] );
+		chunk->triangleBuffer.at(operation->id[0]) = iTriangle( operation->id[2], operation->id[3], operation->id[4] );
 	}
 
 	// chunk->triangleBuffer.insert(chunk->triangleBuffer.begin() + operation->id[0],
-	// 		Triangle( operation->id[2], operation->id[3], operation->id[4] ));
+	// 		iTriangle( operation->id[2], operation->id[3], operation->id[4] ));
 	memcpy( data, chunk->triangleBuffer.data(), chunk->triangleBuffer.size()*sizeof(chunk->triangleBuffer[0]) );
 	glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
 	tri = new Tri( chunk, operation->id[0] );
@@ -6187,7 +6337,7 @@ void Terrain::operation_reshapeTri(JournalEntry::JournalEntryOp* operation) {
 	Chunk* chunk = chunkList[operation->id[1]];
 	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, chunk->elementBuffer );
 	void * data = glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY);
-	chunk->triangleBuffer.at( operation->id[0] ) = Triangle( old_p0, old_p1, old_p2 );
+	chunk->triangleBuffer.at( operation->id[0] ) = iTriangle( old_p0, old_p1, old_p2 );
 	memcpy( data, chunk->triangleBuffer.data(), chunk->triangleBuffer.size()*sizeof(chunk->triangleBuffer[0]) );
 	glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
 

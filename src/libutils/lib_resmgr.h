@@ -25,6 +25,7 @@
 #include "extern/GL/glew.h"
 #include <boost/tokenizer.hpp>
 
+#include "kernel/k_geometry.h"
 #include "kernel/k_mesh.h"
 #include "kernel/k_entity.h"
 #include "kernel/k_camera.h"

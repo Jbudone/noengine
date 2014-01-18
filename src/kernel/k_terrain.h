@@ -334,6 +334,20 @@
 			EntryAddEdge {
 				[vert_id, vert_id]
 			}
+
+
+	CSG
+		- Switch between primitive objects; display the object with transparency in front of you (eg. holding onto a transparent sphere). When the object intersects a triangle, temporarily select that triangle into an invisible group, then draw the tris from the sphere which intersect the terrain with no transparency
+		- Find all triangles within sphere-radius of CSG-object; check each for intersection. Those intersected will be cut along its intersection, and those tri's of the sphere which are intersected will also be cut along the intersection. Traverse along the tri/edge path of the sphere to add each tri/edge to the terrain
+
+		TODO LIST:
+			> find ray-intersection point of triangle; this is center of sphere; find all tri's in sphere-radius of CSG
+			> CSG object (scalable primitives)
+			> cut all tri's of terrain along intersection path; keep track of path(s) cut
+			> add CSG mesh to terrain (correct part)
+			> cut tri's along intersection of CSG mesh
+			* cutting inside (cave) to outside area?
+			> display CSG object in front of you; enable/disable; switch between CSG primitives
  *		
  **/
 
@@ -410,7 +424,7 @@ template <class T> struct Point;
 template <class T> struct QuadTree;
 class Vertex;
 struct TerrainSelection;
-struct Triangle;
+struct iTriangle;
 struct TriangleNode;
 struct EdgeTriTree;
 struct Tri;
@@ -438,12 +452,13 @@ public:
 	TerrainSelection* selection;
 	Tri* terrainPick(glm::vec3 position, glm::vec3 direction);
 	void selectTri(Tri*);
+	void CSG(glm::vec3 position, glm::vec3 intersection, Tri* hitTri);
 
 	Chunk* headChunk = 0;
 	vector<Chunk*> chunkList;
 	vector<Vertex> vertexBuffer; // all vertices in the terrain
 	Voxel* voxelTree; // voxel tree of terrain
-	vector<Triangle> debugTriangles; // TODO: remove or implement debug mode properly
+	vector<iTriangle> debugTriangles; // TODO: remove or implement debug mode properly
 	EdgeTriTree* edgeTree;
 
 	/* Journal
@@ -494,35 +509,12 @@ struct Point {
 };
 
 
-struct Vertex {
-	Vertex() { }
-	Vertex(float v_x, float v_y, float v_z) : v_x(v_x), v_y(v_y), v_z(v_z) { }
-	float v_x, v_y, v_z;
-	bool operator ==(Vertex& vertex) {
-		float rpt = 0.01f;
-		return (
-			(fabs(v_x-vertex.v_x) <= rpt) && 
-			(fabs(v_y-vertex.v_y) <= rpt) && 
-			(fabs(v_z-vertex.v_z) <= rpt) );
-		// int rpt = 1000; // rounding point
-		// return ((int)(v_x*rpt) == (int)(vertex.v_x*rpt) &&
-		// 		(int)(v_y*rpt) == (int)(vertex.v_y*rpt) &&
-		// 		(int)(v_z*rpt) == (int)(vertex.v_z*rpt));
-	}
-	bool between(Vertex& v1, Vertex& v2) {
-		return (
-			((v_x>=v1.v_x && v_x<=v2.v_x)||(v_x>=v2.v_x && v_x<=v1.v_x)) &&
-			((v_y>=v1.v_y && v_y<=v2.v_y)||(v_y>=v2.v_y && v_y<=v1.v_y)) &&
-			((v_z>=v1.v_z && v_z<=v2.v_z)||(v_z>=v2.v_z && v_z<=v1.v_z))
-		);
-	}
-};
-
-struct Triangle {
-	Triangle(ushort p0, ushort p1, ushort p2) : p0(p0), p1(p1), p2(p2) { }
+// Indexed Triangle (refers to indices of verts in vertexBuffer)
+struct iTriangle {
+	iTriangle(ushort p0, ushort p1, ushort p2) : p0(p0), p1(p1), p2(p2) { }
 	ushort p0, p1, p2;
 	// uchar metadata;
-	bool operator ==(Triangle& triangle) { 
+	bool operator ==(iTriangle& triangle) { 
 		// TODO: fix this (backface culling)
 		return ((p0==triangle.p0||p0==triangle.p1||p0==triangle.p2)&&(p1==triangle.p0||p1==triangle.p1||p1==triangle.p2)&&(p2==triangle.p0||p2==triangle.p1||p2==triangle.p2));
 	}
@@ -623,7 +615,7 @@ struct Chunk {
 	// TODO: do we really need voxelBuffer/triangleBuffer?
 	// all of this is stored in VBO
 	// vector<Voxel*> voxelBuffer;
-	vector<Triangle> triangleBuffer;
+	vector<iTriangle> triangleBuffer;
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 	/* Add Triangles
@@ -1004,10 +996,14 @@ struct TerrainSelection {
 	struct SelectionClass {
 		const static uchar CLASS_HIGHLIGHT = 1;
 		const static uchar CLASS_HIGHLIGHT_NEIGHBOUR = 2;
+		const static uchar CLASS_HIGHLIGHT_NEIGHBOURCOUNT0 = 3;
+		const static uchar CLASS_HIGHLIGHT_NEIGHBOURCOUNT1 = 4;
+		const static uchar CLASS_HIGHLIGHT_NEIGHBOURCOUNT2 = 5;
+		const static uchar CLASS_HIGHLIGHT_NEIGHBOURCOUNT3 = 6;
 		int class_id;
 		Chunk* refChunk;
 		int refTri_id;
-		vector<Triangle> triangles;
+		vector<iTriangle> triangles;
 	};
 	vector<SelectionClass*> selections;
 	// LinkedList_Line<QuadTree<Voxel>> inner_selection;
@@ -1020,5 +1016,6 @@ struct Environment {
 	Terrain* terrain;
 	JournalEntry* journalEntry;
 };
+
 
 #endif

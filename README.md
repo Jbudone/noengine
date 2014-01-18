@@ -7,6 +7,8 @@ JB's engine collection. Until the engine and core is in a working and usable sta
 known as No Engine (ie. incomplete) The various engines will be completely scalable with the
 possibility of multiple implementations which can be choosen at compile-time.
 
+**WARNING: the following todo was the work of a mad-man; getting his thoughts out in a chaotic manner**
+
 Requirements
 ----------
 
@@ -103,16 +105,6 @@ TODO
 	+ Action buffer resyncing
 	+ Server journaling; client ack on relays, able to resend previous relays. Journaler handled by
 		a separate thread for performance
-
-
-Cleanup
---------
-	
-	+ Networking component
-	+ ResourceManager component
-	+ Clean logging/comments
-	+ Variable naming (more readable)
-	+ Better shader management
 
 
 

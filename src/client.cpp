@@ -37,6 +37,7 @@ void mouseMove(int,int);
 int input_clock;
 int input_state;
 int mouse_xoffset, mouse_yoffset;
+int mouse_x, mouse_y;
 int INPUT_LEFT  = 1<<0;
 int INPUT_RIGHT = 1<<1;
 int INPUT_UP    = 1<<2;
@@ -508,6 +509,82 @@ void keyboardRelease(unsigned char key, int xx, int yy) {
 				// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 			}
 			break;
+		case 120: // CSG operation
+			{
+				// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+				// TODO: CSG operation
+
+
+				// project coordinates into screen-space [-1,1]
+				// use the mid-section of pixel
+				int x = mouse_x;
+				int y = mouse_y;
+				float xw=((float)(x+0.5)/camera.width)*2-1;
+				float yw=((float)(y+0.5)/camera.height)*2-1;
+				yw*=-1; // y flipped
+
+				// project coordinates into world-space (fov)
+				float fov=tan(camera.fov*3.14159265358979/((float)180*2)); // convert to fov angle (in rad)
+				xw*=-1*fov*camera.aspect;
+				yw*=-1*fov;
+
+				glm::vec3 rayPos = glm::vec3(-1*camera.position.x, camera.position.y, -1*camera.position.z);
+
+				// ray direction
+				glm::vec4 rayDir      = glm::vec4( xw, yw, 1.0f, 1.0f );
+				glm::mat4 perspective = camera.perspective;
+				glm::quat quatY       = glm::angleAxis( glm::degrees( camera.rotation.y ), glm::vec3( -1.0f, 0.0f, 0.0f ) );
+				glm::quat quatX       = glm::angleAxis( glm::degrees( camera.rotation.x ), glm::vec3( 0.0f, 1.0f, 0.0f ) );
+				glm::quat quat        = quatY * quatX;
+				glm::mat4 view        = glm::toMat4(quat);
+
+				glm::vec4 modelRayDir = glm::inverse(view) * glm::inverse(perspective) * rayDir * glm::vec4( 1.0f, -1.0f, -1.0f, 1.0f );
+				// glm::vec4 modelRayDir = glm::inverse(view) * rayDir;
+				modelRayDir.x /= modelRayDir.w;
+				modelRayDir.y /= modelRayDir.w;
+				modelRayDir.z /= modelRayDir.w;
+				modelRayDir.w /= modelRayDir.w;
+				modelRayDir = glm::normalize(modelRayDir);
+
+				glm::vec3 modelRayDir3 = glm::vec3(modelRayDir);
+
+				Tri* hitTri = ResourceManager::world->terrain->terrainPick( rayPos, modelRayDir3 );
+
+				if ( hitTri ) {
+
+					glm::vec3 position = rayPos;
+					glm::vec3 direction = modelRayDir3;
+
+						// check if tri hits..
+						Vertex pv0 = ResourceManager::world->terrain->vertexBuffer[hitTri->p0];
+						Vertex pv1 = ResourceManager::world->terrain->vertexBuffer[hitTri->p1];
+						Vertex pv2 = ResourceManager::world->terrain->vertexBuffer[hitTri->p2];
+
+						// glm::mat4 mvp = camera.perspectiveView;
+						// mvp = glm::transpose(mvp);
+						glm::vec3 v0 = glm::vec3( pv0.v_x, pv0.v_y, pv0.v_z );
+						glm::vec3 v1 = glm::vec3( pv1.v_x, pv1.v_y, pv1.v_z );
+						glm::vec3 v2 = glm::vec3( pv2.v_x, pv2.v_y, pv2.v_z );
+
+						glm::vec3 u = v1 - v0;
+						glm::vec3 v = v2 - v0;
+						glm::vec3 norm = glm::cross( u, v );
+
+
+						glm::vec3 triRayDir = position - v0;
+						float triRayNormDot = -1 * glm::dot( norm, triRayDir );
+						float rayNormDot    = glm::dot( norm, direction );
+						// if (rayNormDot < 0) rayNormDot *= -1; // JB: double sided triangle?
+						float r             = triRayNormDot / rayNormDot;
+						glm::vec3 intersection = position + r * direction; // intersection of ray & plane
+
+
+						ResourceManager::world->terrain->CSG(position, intersection, hitTri);
+				}
+
+				// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			}
+			break;
 	}
 }
 
@@ -530,6 +607,7 @@ void mouseClick(int button, int state, int x, int y) {
 
 				// project coordinates into screen-space [-1,1]
 				// use the mid-section of pixel
+				mouse_x = x; mouse_y = y;
 				float xw=((float)(x+0.5)/camera.width)*2-1;
 				float yw=((float)(y+0.5)/camera.height)*2-1;
 				yw*=-1; // y flipped
@@ -574,7 +652,7 @@ void mouseClick(int button, int state, int x, int y) {
 						 *	* Each bucket has a class; that class will be rendered a certain way
 						 *	* Rewrite existing tri to point to another existing tri; then restore when unselected
 						 */
-						Log(str(format("Hit a Tri: {%1%,%2%,%3%}") % triHit->p0 % triHit->p1 % triHit->p2));
+						Log(str(format("Hit a Tri: {%1%,%2%,%3%}[%4%]") % triHit->p0 % triHit->p1 % triHit->p2 % triHit));
 						ResourceManager::world->terrain->selectTri( triHit );
 					}
 				}
