@@ -58,7 +58,8 @@ public:
 	float height = WIN_HEIGHT;
 
 	float rotation_speed = 0.0010f;
-	float move_speed     = 999999999999.000f;
+	float move_speed     = 1;
+	bool move_fast       = false;
 };
 
 extern Camera camera;

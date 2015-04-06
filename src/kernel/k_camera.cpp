@@ -46,11 +46,18 @@ void Camera::move(int x, int y, int z) {
 	glm::vec4 translation =  glm::vec4(x,y,z,1.0f);
 	translation = rotate * translation;
 	translation = move_speed * translation;
-	translation.w /= 10;
+	translation.w /= 2;
+	if (move_fast) translation.w /= 5;
 
 	position.x += translation.x / translation.w;
 	position.y += translation.y / translation.w;
 	position.z += translation.z / translation.w;
+	// int xTerr=(position.x>0?0:-position.x),
+	// 	zTerr=(position.z>0?0:-position.z);
+	// int pos = xTerr*ResourceManager::world->terrain->hmapHeight-zTerr;
+	// if (pos<0) pos=0;
+	// else if (pos>=ResourceManager::world->terrain->width*ResourceManager::world->terrain->hmapHeight+ResourceManager::world->terrain->depth+1) pos=0;
+	// position.y = ResourceManager::world->terrain->sampleHeights[pos]+2;
 	update();
 
 	

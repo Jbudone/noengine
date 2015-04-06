@@ -345,7 +345,7 @@ void check_gl_error() {
 
 void display() {
 
-	glClearColor( 1.0f, 0.0f, 1.0f, 0.0f );
+	glClearColor( 0.0f, 0.0f, 0.0f, 0.0f );
 	glClearDepth( 1.0f );
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 	ResourceManager::world->render();
@@ -391,6 +391,8 @@ void keyboard(unsigned char key, int xx, int yy) {
 		case 27: // ESC
 			requestClose = true; break;
 			// glutLeaveMainLoop(); break;
+		case 43: // Camera Speedup 
+			camera.move_fast = true; break;
 		case 97: // LEFT
 			input_state |= INPUT_LEFT; break;
 		case 100: // RIGHT
@@ -454,6 +456,8 @@ void keyboard(unsigned char key, int xx, int yy) {
 
 void keyboardRelease(unsigned char key, int xx, int yy) {
 	switch(key) {
+		case 43: // Camera Speedup 
+			camera.move_fast = false; break;
 		case 97: // LEFT
 			input_state &= ~INPUT_LEFT; break;
 		case 100: // RIGHT
@@ -514,13 +518,14 @@ void keyboardRelease(unsigned char key, int xx, int yy) {
 				// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 				// TODO: CSG operation
 
-
+				Log("CSG Push");
 				// project coordinates into screen-space [-1,1]
 				// use the mid-section of pixel
 				int x = mouse_x;
 				int y = mouse_y;
 				float xw=((float)(x+0.5)/camera.width)*2-1;
 				float yw=((float)(y+0.5)/camera.height)*2-1;
+				xw=0; yw=0; // center?
 				yw*=-1; // y flipped
 
 				// project coordinates into world-space (fov)
@@ -546,41 +551,10 @@ void keyboardRelease(unsigned char key, int xx, int yy) {
 				modelRayDir.w /= modelRayDir.w;
 				modelRayDir = glm::normalize(modelRayDir);
 
-				glm::vec3 modelRayDir3 = glm::vec3(modelRayDir);
+				Vertex position( rayPos.x, rayPos.y, rayPos.z );
+				Vertex direction( modelRayDir.x, modelRayDir.y, modelRayDir.z );
 
-				Tri* hitTri = ResourceManager::world->terrain->terrainPick( rayPos, modelRayDir3 );
-
-				if ( hitTri ) {
-
-					glm::vec3 position = rayPos;
-					glm::vec3 direction = modelRayDir3;
-
-						// check if tri hits..
-						Vertex pv0 = ResourceManager::world->terrain->vertexBuffer[hitTri->p0];
-						Vertex pv1 = ResourceManager::world->terrain->vertexBuffer[hitTri->p1];
-						Vertex pv2 = ResourceManager::world->terrain->vertexBuffer[hitTri->p2];
-
-						// glm::mat4 mvp = camera.perspectiveView;
-						// mvp = glm::transpose(mvp);
-						glm::vec3 v0 = glm::vec3( pv0.v_x, pv0.v_y, pv0.v_z );
-						glm::vec3 v1 = glm::vec3( pv1.v_x, pv1.v_y, pv1.v_z );
-						glm::vec3 v2 = glm::vec3( pv2.v_x, pv2.v_y, pv2.v_z );
-
-						glm::vec3 u = v1 - v0;
-						glm::vec3 v = v2 - v0;
-						glm::vec3 norm = glm::cross( u, v );
-
-
-						glm::vec3 triRayDir = position - v0;
-						float triRayNormDot = -1 * glm::dot( norm, triRayDir );
-						float rayNormDot    = glm::dot( norm, direction );
-						// if (rayNormDot < 0) rayNormDot *= -1; // JB: double sided triangle?
-						float r             = triRayNormDot / rayNormDot;
-						glm::vec3 intersection = position + r * direction; // intersection of ray & plane
-
-
-						ResourceManager::world->terrain->CSG(position, intersection, hitTri);
-				}
+				ResourceManager::world->terrain->CSG( position, direction );
 
 				// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 			}

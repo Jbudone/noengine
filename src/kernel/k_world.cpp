@@ -115,7 +115,7 @@ void World::loadWorld() {
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	// Add terrain
 	RenderGroup* r = shadermgr->renderers.at(2);
-	terrain = new Terrain( shadermgr->renderers.at(2)->program->programid );
+	terrain = new TerrainPoly( shadermgr->renderers.at(2)->program->programid );
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
@@ -151,6 +151,7 @@ void World::loadWorld() {
 		glDepthRange( NGL_NEAR, NGL_FAR );
 		glEnable ( GL_BLEND );
 		glBlendFunc ( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+		glEnable( GL_TEXTURE_3D );
 	}
 
 
