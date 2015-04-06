@@ -26,7 +26,6 @@ performance friendly concept.
 
 	+ Heightmap Terrain
 
-|     |     |
 |-----|-----|
 | ![heightmap](/screenshots/ubXqwr4.png) | ![heightmap](/screenshots/hmap-short.png) |
 	
