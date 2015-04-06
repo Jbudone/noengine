@@ -26,6 +26,8 @@ performance friendly concept.
 
 	+ Heightmap Terrain
 
+|     |     |
+|-----|-----|
 | ![heightmap](/screenshots/ubXqwr4.png) | ![heightmap](/screenshots/hmap-short.png) |
 	
 		The terrain is split into Quads to allow varying levels of LOD, and only rendering Quads in
@@ -34,7 +36,9 @@ performance friendly concept.
 		LOD level. I've implemented a perlin noise generator to procedurally build a heightmap on
 		startup.
 
-![no-stitch](/screenshots/YGylbMq.png) ![no-stitch](/screenshots/JPOjvVo.png)
+|     |     |
+|-----|-----|
+| ![no-stitch](/screenshots/YGylbMq.png) | ![no-stitch](/screenshots/JPOjvVo.png) |
 
 		Notice the holes between chunks renderedf at different levels of LOD. This is an artifact of
 		not stitching Quads together using edge strips.
@@ -45,11 +49,15 @@ performance friendly concept.
 		change in geometry is particularly noticeable if an error threshold isn't taken into account
 		and if the Quad is too close to the viewer. 
 
-![normals](/screenshots/3btgCqK.png) ![normals](/screenshots/A9yFidG.png)
+|     |     |
+|-----|-----|
+| ![normals](/screenshots/3btgCqK.png) | ![normals](/screenshots/A9yFidG.png) |
 
 		Normals are used to give the terrain a natural look.
 
-![textures](/screenshots/hmap-long.png) ![textures](/screenshots/hmap-long3.png)
+|     |     |
+|-----|-----|
+| ![textures](/screenshots/hmap-long.png) | ![textures](/screenshots/hmap-long3.png) |
 
 		I'm using a variety of textures in order to procedurally generate textures for the terrain.
 		A heightband is used to determine the coverage of each given terrain type (dirt, snow) on a
@@ -67,7 +75,9 @@ performance friendly concept.
 
 	+ Polysoup Terrain
 	
-![polysoup](/screenshots/poly.png) ![polysoup](/screenshots/DSw74C7.png)
+|     |     |
+|-----|-----|
+| ![polysoup](/screenshots/poly.png) | ![polysoup](/screenshots/DSw74C7.png) |
 
 		The polysoup based terrain is a less constrained and more scalable, though less efficient,
 		implementation for the terrain. It works by keeping track of every triangle, every edge and
@@ -77,7 +87,9 @@ performance friendly concept.
 		belongs in one chunk. You'll see this 3d grid in the images where each collection of
 		triangles has similar colour to indicate which chunk they belong to.
 
-![tessellation](/screenshots/fJ1M0ka.png) ![tessellation](/screenshots/ikQqOHo.png)
+|     |     |
+|-----|-----|
+| ![tessellation](/screenshots/fJ1M0ka.png) | ![tessellation](/screenshots/ikQqOHo.png) |
 
 		The generation process first creates a heightmap of points and then triangulates the terrain
 		to represent that heightmap in a polysoup form. The heightmap is traversed and triangles are
