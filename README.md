@@ -26,7 +26,7 @@ performance friendly concept.
 
 	+ Heightmap Terrain
 
-		!(screenshots/ubXqwr4.png) !(screenshots/hmap-short.png)
+		![heightmap](screenshots/ubXqwr4.png) ![heightmap](screenshots/hmap-short.png)
 	
 		The terrain is split into Quads to allow varying levels of LOD, and only rendering Quads in
 		view. To avoid cross-LOD holes between Quads, a stitch is given for each LOD to each corner
@@ -34,22 +34,22 @@ performance friendly concept.
 		LOD level. I've implemented a perlin noise generator to procedurally build a heightmap on
 		startup.
 
-		!(screenshots/YGylbMq.png) !(screenshots/JPOjvVo.png)
+		![no-stitch](screenshots/YGylbMq.png) ![no-stitch](screenshots/JPOjvVo.png)
 
 		Notice the holes between chunks renderedf at different levels of LOD. This is an artifact of
 		not stitching Quads together using edge strips.
 
-		!(screenshots/popping.gif)
+		![popping](screenshots/popping.gif)
 
 		One problem is the "popping" effect from Quads swapping between LOD levels. This drastic
 		change in geometry is particularly noticeable if an error threshold isn't taken into account
 		and if the Quad is too close to the viewer. 
 
-		!(screenshots/3btgCqK.png) !(screenshots/A9yFidG.png)
+		![normals](screenshots/3btgCqK.png) ![normals](screenshots/A9yFidG.png)
 
 		Normals are used to give the terrain a natural look.
 
-		!(screenshots/hmap-long.png) !(screenshots/hmap-long3.png)
+		![textures](screenshots/hmap-long.png) ![textures](screenshots/hmap-long3.png)
 
 		I'm using a variety of textures in order to procedurally generate textures for the terrain.
 		A heightband is used to determine the coverage of each given terrain type (dirt, snow) on a
@@ -61,13 +61,13 @@ performance friendly concept.
 		artifacts in texturing steep slopes. Lastly, a normal map is used to provide a bumpy look to
 		rocky textures.
 
-		!(screenshots/rQ9Wizl.png)
+		![details](screenshots/rQ9Wizl.png)
 
 		Notice the high detail texture when looking closely at the terrain.
 
 	+ Polysoup Terrain
 	
-		!(screenshots/poly.png) !(screenshots/DSw74C7.png)
+		![polysoup](screenshots/poly.png) ![polysoup](screenshots/DSw74C7.png)
 
 		The polysoup based terrain is a less constrained and more scalable, though less efficient,
 		implementation for the terrain. It works by keeping track of every triangle, every edge and
@@ -77,7 +77,7 @@ performance friendly concept.
 		belongs in one chunk. You'll see this 3d grid in the images where each collection of
 		triangles has similar colour to indicate which chunk they belong to.
 
-		!(screenshots/fJ1M0ka.png) !(screenshots/ikQqOHo.png)
+		![tessellation](screenshots/fJ1M0ka.png) ![tessellation](screenshots/ikQqOHo.png)
 
 		The generation process first creates a heightmap of points and then triangulates the terrain
 		to represent that heightmap in a polysoup form. The heightmap is traversed and triangles are
@@ -86,7 +86,7 @@ performance friendly concept.
 		Any triangly who's edge has been split and is shared with a neighbour triangle will split
 		that neighbour triangle to avoid any T-junctions. 
 
-		!(screenshots/journal.gif)
+		![journal](screenshots/journal.gif)
 
 		To help with debugging I've created a journaling system which keeps track of changes made to
 		the terrain. This way if a deformed triangle or a hole is found, I can select a triangle
