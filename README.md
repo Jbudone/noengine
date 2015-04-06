@@ -26,7 +26,6 @@ performance friendly concept.
 
 	+ Heightmap Terrain
 
-|-----|-----|
 | ![heightmap](/screenshots/ubXqwr4.png) | ![heightmap](/screenshots/hmap-short.png) |
 	
 		The terrain is split into Quads to allow varying levels of LOD, and only rendering Quads in
